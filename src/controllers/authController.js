@@ -96,7 +96,11 @@ exports.forgotPassword = async (req, res) => {
         res.json({ message: 'Password recovery email sent successfully.' });
     } catch (error) {
         console.error('Forgot password error:', error);
-        res.status(500).json({ error: 'Failed to send recovery email.' });
+        res.status(500).json({
+            error: 'Failed to send recovery email.',
+            details: error.message,
+            code: error.code
+        });
     }
 };
 
@@ -121,5 +125,25 @@ exports.testEmail = async (req, res) => {
             code: error.code,
             command: error.command
         });
+    }
+};
+
+exports.updateProfile = async (req, res) => {
+    try {
+        const { userId, fullName, phone } = req.body;
+        if (!userId) return res.status(401).json({ error: 'User ID required' });
+
+        const user = await User.findOneAndUpdate(
+            { userId },
+            { fullName, phone },
+            { new: true }
+        );
+
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        res.json({ message: 'Profile updated in cloud successfully', user: { fullName: user.fullName, phone: user.phone } });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({ error: 'Failed to update cloud profile' });
     }
 };

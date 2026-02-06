@@ -726,6 +726,21 @@ async function saveProfile(e) {
     }
 
     if (response.ok) {
+      // ALSO sync core details (FullName, Phone) with Cloud DB (MongoDB)
+      try {
+        await fetch('/api/auth/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser,
+            fullName: profileInfo.full_name,
+            phone: profileInfo.phone
+          })
+        });
+      } catch (err) {
+        console.error('Cloud profile sync warning:', err);
+      }
+
       await fetchJobs();
       showToast('Profile saved successfully!', 'success');
     } else {
