@@ -111,42 +111,16 @@ exports.testEmail = async (req, res) => {
             diagnostics: {}
         };
 
-        // 1. Check Resend (Primary for Cloud)
+        // Check Resend (Exclusively used for Cloud)
         if (notificationService.resend) {
-            try {
-                // Just a basic check, we can't 'verify' a key without sending usually
-                // but we can check if it's initialized
-                results.diagnostics.resend = {
-                    status: 'initialized',
-                    provider: 'Resend (HTTP)',
-                    fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
-                };
-            } catch (err) {
-                results.diagnostics.resend = { status: 'error', error: err.message };
-            }
+            results.diagnostics.resend = {
+                status: 'initialized',
+                provider: 'Resend (HTTP)',
+                fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+            };
         } else {
             results.diagnostics.resend = { status: 'not_configured', message: 'RESEND_API_KEY missing' };
-        }
-
-        // 2. Check SMTP (Fallback)
-        try {
-            await notificationService.transporter.verify();
-            results.diagnostics.smtp = {
-                status: 'success',
-                message: 'SMTP Connection Verified',
-                config: {
-                    host: process.env.EMAIL_HOST,
-                    port: process.env.EMAIL_PORT,
-                    user: process.env.EMAIL_USER
-                }
-            };
-        } catch (error) {
-            results.diagnostics.smtp = {
-                status: 'error',
-                message: 'SMTP Connection Failed (Expected on Render Free Tier)',
-                details: error.message,
-                code: error.code
-            };
+            results.status = 'partial_success';
         }
 
         res.json(results);
