@@ -99,3 +99,27 @@ exports.forgotPassword = async (req, res) => {
         res.status(500).json({ error: 'Failed to send recovery email.' });
     }
 };
+
+exports.testEmail = async (req, res) => {
+    try {
+        await notificationService.transporter.verify();
+        res.json({
+            status: 'success',
+            message: 'SMTP Connection Verified Successfully',
+            config: {
+                host: process.env.EMAIL_HOST,
+                port: process.env.EMAIL_PORT,
+                user: process.env.EMAIL_USER
+            }
+        });
+    } catch (error) {
+        console.error('SMTP Verification Error:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'SMTP Connection Failed',
+            details: error.message,
+            code: error.code,
+            command: error.command
+        });
+    }
+};

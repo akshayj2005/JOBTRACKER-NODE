@@ -409,7 +409,15 @@ async function handleForgotPassword(e) {
       body: JSON.stringify({ email })
     });
 
-    const data = await response.json();
+    let data = {};
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      console.error('Server returned non-JSON response:', text);
+      data = { error: 'Server error (500). Please check server logs.' };
+    }
 
     if (response.ok) {
       const inboxUrl = getInboxUrl(email);
@@ -441,7 +449,7 @@ async function handleForgotPassword(e) {
     }
   } catch (err) {
     console.error('Forgot password error:', err);
-    msgEl.textContent = '✕ Connection error. Please try again.';
+    msgEl.textContent = '✕ Connection error. The server might be unreachable or timed out.';
     msgEl.className = 'mt-4 p-4 rounded-xl bg-red-500/10 text-red-400 text-center border border-red-500/20 block';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Reset Password';
