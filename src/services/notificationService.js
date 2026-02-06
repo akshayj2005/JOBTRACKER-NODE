@@ -17,15 +17,17 @@ class NotificationService {
             }
         };
 
-        if (process.env.EMAIL_HOST && process.env.EMAIL_HOST.includes('gmail')) {
+        const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+
+        if (host.includes('gmail')) {
             // Even for Gmail, we can use the explicit host/port if 587 is requested
             config.host = 'smtp.gmail.com';
             config.port = port;
-            config.secure = false; // Port 587 is STARTTLS (secure: false)
+            config.secure = port === 465; // true for 465, false for 587
         } else {
-            config.host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+            config.host = host;
             config.port = port;
-            config.secure = port === 587;
+            config.secure = port === 465;
         }
 
         // Force IPv4 to avoid ENETUNREACH errors on cloud platforms (like Render) that have unstable IPv6
