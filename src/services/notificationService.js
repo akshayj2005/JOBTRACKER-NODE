@@ -24,10 +24,16 @@ class NotificationService {
             config.host = 'smtp.gmail.com';
             config.port = port;
             config.secure = port === 465; // true for 465, false for 587
+            if (port === 587) {
+                config.requireTLS = true; // Force STARTTLS for port 587
+            }
         } else {
             config.host = host;
             config.port = port;
             config.secure = port === 465;
+            if (port === 587) {
+                config.requireTLS = true;
+            }
         }
 
         // Force IPv4 to avoid ENETUNREACH errors on cloud platforms (like Render) that have unstable IPv6
@@ -35,8 +41,18 @@ class NotificationService {
         config.greetingTimeout = 10000;
         config.socketTimeout = 15000;
         config.family = 4; // Force IPv4
+        config.dnsTimeout = 10000; // DNS lookup timeout
 
-        config.tls = { rejectUnauthorized: false };
+        config.tls = {
+            rejectUnauthorized: false,
+            minVersion: 'TLSv1.2'
+        };
+
+        // Enable debug logging in development
+        if (process.env.NODE_ENV !== 'production') {
+            config.logger = true;
+            config.debug = true;
+        }
 
         return nodemailer.createTransport(config);
     }
