@@ -25,6 +25,12 @@ class NotificationService {
             config.secure = port === 465;
         }
 
+        // Force IPv4 to avoid ENETUNREACH errors on cloud platforms (like Render) that have unstable IPv6
+        config.connectionTimeout = 10000; // 10 seconds
+        config.greetingTimeout = 10000;
+        config.socketTimeout = 15000;
+        config.family = 4; // Force IPv4
+
         config.tls = { rejectUnauthorized: false };
 
         return nodemailer.createTransport(config);
