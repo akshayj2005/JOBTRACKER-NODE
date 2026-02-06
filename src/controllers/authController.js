@@ -98,8 +98,9 @@ exports.forgotPassword = async (req, res) => {
         console.error('Forgot password error:', error);
         res.status(500).json({
             error: 'Failed to send recovery email.',
-            details: error.message,
-            code: error.code
+            details: error.message || 'Unknown error',
+            code: error.code || error.statusCode || 'NO_CODE',
+            raw: error
         });
     }
 };

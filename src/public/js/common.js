@@ -442,7 +442,11 @@ async function handleForgotPassword(e) {
 
       showToast('Recovery email sent!', 'success');
     } else {
-      msgEl.textContent = '✕ ' + (data.error || 'Failed to send email.');
+      let errorMessage = '✕ ' + (data.error || 'Failed to send email.');
+      if (data.details) errorMessage += ` (${data.details})`;
+      if (data.code) errorMessage += ` [Code: ${data.code}]`;
+
+      msgEl.textContent = errorMessage;
       msgEl.className = 'mt-4 p-4 rounded-xl bg-red-500/10 text-red-400 text-center border border-red-500/20 block';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Reset Password';
