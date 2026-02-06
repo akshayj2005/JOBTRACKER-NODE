@@ -1,69 +1,94 @@
 const nodemailer = require('nodemailer');
 const schedule = require('node-schedule');
+const { Resend } = require('resend');
 require('dotenv').config();
 
 class NotificationService {
     constructor() {
         this.scheduledJobs = new Map(); // Store scheduled jobs by ID
+        this.resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
         this.transporter = this.createTransporter();
+
+        if (this.resend) {
+            console.log('Resend Email Service initialized');
+        } else {
+            console.log('Resend API Key missing, falling back to SMTP');
+        }
     }
 
     createTransporter() {
+        // Fallback or local SMTP
         const port = parseInt(process.env.EMAIL_PORT) || 587;
+        const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+
         const config = {
+            host: host,
+            port: port,
+            secure: port === 465, // true for 465, false for 587
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: (process.env.EMAIL_PASS || '').replace(/\s/g, '') // Trim spaces from App Password
+            },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 15000,
+            family: 4, // Force IPv4
+            tls: {
+                rejectUnauthorized: false,
+                minVersion: 'TLSv1.2'
             }
         };
 
-        const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-
-        if (host.includes('gmail')) {
-            // Even for Gmail, we can use the explicit host/port if 587 is requested
-            config.host = 'smtp.gmail.com';
-            config.port = port;
-            config.secure = port === 465; // true for 465, false for 587
-            if (port === 587) {
-                config.requireTLS = true; // Force STARTTLS for port 587
-            }
-        } else {
-            config.host = host;
-            config.port = port;
-            config.secure = port === 465;
-            if (port === 587) {
-                config.requireTLS = true;
-            }
-        }
-
-        // Force IPv4 to avoid ENETUNREACH errors on cloud platforms (like Render) that have unstable IPv6
-        config.connectionTimeout = 10000; // 10 seconds
-        config.greetingTimeout = 10000;
-        config.socketTimeout = 15000;
-        config.family = 4; // Force IPv4
-        config.dnsTimeout = 10000; // DNS lookup timeout
-
-        config.tls = {
-            rejectUnauthorized: false,
-            minVersion: 'TLSv1.2'
-        };
-
-        // Enable debug logging in development
-        if (process.env.NODE_ENV !== 'production') {
-            config.logger = true;
-            config.debug = true;
+        if (port === 587) {
+            config.requireTLS = true;
         }
 
         return nodemailer.createTransport(config);
     }
 
     /**
+     * Internal helper to send email using either Resend or SMTP
+     */
+    async sendEmail(to, subject, html, fromName = 'JobTracker') {
+        // If Resend is configured, try it first
+        if (this.resend) {
+            try {
+                // IMPORTANT: Resend free tier uses 'onboarding@resend.dev' by default
+                const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+                const { data, error } = await this.resend.emails.send({
+                    from: `${fromName} <${fromEmail}>`,
+                    to: [to],
+                    subject: subject,
+                    html: html,
+                });
+
+                if (error) {
+                    console.error('Resend API Error:', error);
+                    // Fall through to SMTP if Resend fails
+                } else {
+                    console.log('Email sent successfully via Resend:', data.id);
+                    return data;
+                }
+            } catch (err) {
+                console.error('Resend Exception:', err);
+                // Fall through to SMTP
+            }
+        }
+
+        // SMTP Fallback
+        console.log(`Attempting SMTP fallback for ${to}...`);
+        const sender = process.env.EMAIL_USER;
+        return await this.transporter.sendMail({
+            from: `"${fromName}" <${sender}>`,
+            to: to,
+            subject: subject,
+            html: html
+        });
+    }
+
+    /**
      * Schedule notifications for an interview round
-     * @param {Object} interview - Interview round object {name, datetime}
-     * @param {Object} jobData - Job object {company, position}
-     * @param {Object} user - User object {email, notificationPreferences}
-     * @param {String} jobId - Job ID
-     * @param {Number} roundIndex - Index of the round
      */
     scheduleInterviewNotifications(interview, jobData, user, jobId, roundIndex) {
         if (!user.notificationPreferences.email || !user.email) {
