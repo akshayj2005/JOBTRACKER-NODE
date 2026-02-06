@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Tracker - Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <script src="/_sdk/data_sdk.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles/common.css">
+</head>
+
+<body class="h-full">
+    <div id="app" class="h-full gradient-bg text-white overflow-auto flex flex-col">
+        <!-- Navigation -->
+        <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-700/50">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg><span class="text-xl font-bold">JobTracker</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <button onclick="navigateTo('home')"
+                        class="nav-link hover:text-indigo-400 transition-colors text-indigo-400">Home</button>
+                    <button onclick="navigateTo('contact')"
+                        class="nav-link hover:text-indigo-400 transition-colors">Contact</button>
+                    <button id="userDisplay" onclick="navigateTo('profile')"
+                        class="hidden nav-link hover:text-indigo-400 transition-colors font-medium"></button>
+                    <button id="dashboardNavBtn" onclick="navigateTo('dashboard')"
+                        class="hidden nav-link hover:text-indigo-400 transition-colors">Dashboard</button>
+                    <button id="loginHeaderBtn" onclick="scrollToAuthForm('login')"
+                        class="bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-500 transition-all">Login</button>
+                    <button id="registerHeaderBtn" onclick="scrollToAuthForm('register')"
+                        class="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-500 transition-all">Register</button>
+                    <button id="logoutBtn" onclick="logout()"
+                        class="hidden bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition-all">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="flex-1">
+            <!-- Home Page with Hero -->
+            <div id="homePage" class="page min-h-full pt-20">
+                <section class="relative py-20 px-6 overflow-hidden">
+                    <div class="absolute inset-0 overflow-hidden">
+                        <div class="absolute top-20 left-10 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl"></div>
+                        <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
+                    </div>
+                    <div class="relative max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+                        <!-- Hero Content -->
+                        <div class="space-y-8">
+                            <h1 id="heroTitle" class="text-5xl lg:text-6xl font-bold leading-tight">Track Your <span
+                                    class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Dream
+                                    Job</span>
+                                Journey</h1>
+                            <p id="heroSubtitle" class="text-xl text-slate-300 leading-relaxed">Organize your job
+                                applications, track
+                                progress, and land your next opportunity with our powerful job tracking system.</p>
+                            <div class="flex flex-wrap gap-4">
+                                <div class="flex items-center gap-2 text-slate-400">
+                                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewbox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clip-rule="evenodd" />
+                                    </svg><span>Track Applications</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-slate-400">
+                                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewbox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clip-rule="evenodd" />
+                                    </svg><span>Organize Status</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-slate-400">
+                                    <svg class="w-5 h-5 text-green-400" fill="currentColor" viewbox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clip-rule="evenodd" />
+                                    </svg><span>Add Notes</span>
+                                </div>
+                            </div>
+                        </div><!-- Auth Card -->
+                        <div id="authCard"
+                            class="card-gradient rounded-2xl p-8 glow float-animation border border-slate-700/50">
+                            <div class="flex mb-6"><button id="loginTab" onclick="switchAuthTab('login')"
+                                    class="flex-1 py-3 text-center font-semibold border-b-2 border-indigo-500 text-indigo-400 transition-all">Login</button>
+                                <button id="registerTab" onclick="switchAuthTab('register')"
+                                    class="flex-1 py-3 text-center font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all">Register</button>
+                            </div><!-- Login Form -->
+                            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                                <div><label for="loginUserId" class="block text-sm font-medium text-slate-300 mb-2">User
+                                        ID</label>
+                                    <input type="text" id="loginUserId" required
+                                        class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                        placeholder="Enter your user ID">
+                                </div>
+                                <div><label for="loginPassword"
+                                        class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                                    <div class="relative"><input type="password" id="loginPassword" required
+                                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                            placeholder="Enter your password"> <button type="button"
+                                            onclick="togglePasswordVisibility('loginPassword')"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors">
+                                            <svg id="loginPasswordIcon" class="w-5 h-5" fill="none"
+                                                stroke="currentColor" viewbox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg></button>
+                                    </div>
+                                </div>
+                                <div id="loginError" class="hidden text-red-400 text-sm"></div><button type="submit"
+                                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all transform hover:scale-[1.02]">Login
+                                    to Dashboard</button>
+                                <div class="text-center"><button type="button" onclick="openForgotPasswordModal()"
+                                        class="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors">Forgot
+                                        password?</button>
+                                </div>
+                            </form><!-- Register Form -->
+                            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-5 hidden">
+                                <div><label for="regUserId" class="block text-sm font-medium text-slate-300 mb-2">Choose
+                                        User ID</label>
+                                    <input type="text" id="regUserId" required
+                                        class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                        placeholder="Create a user ID">
+                                </div>
+                                <div><label for="regEmail"
+                                        class="block text-sm font-medium text-slate-300 mb-2">Email</label> <input
+                                        type="email" id="regEmail" required
+                                        class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                        placeholder="Enter your email">
+                                </div>
+                                <div><label for="regPassword"
+                                        class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                                    <div class="relative"><input type="password" id="regPassword" required
+                                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                            placeholder="Create a password"> <button type="button"
+                                            onclick="togglePasswordVisibility('regPassword')"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors">
+                                            <svg id="regPasswordIcon" class="w-5 h-5" fill="none" stroke="currentColor"
+                                                viewbox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg></button>
+                                    </div>
+                                </div>
+                                <div><label for="regConfirmPassword"
+                                        class="block text-sm font-medium text-slate-300 mb-2">Confirm
+                                        Password</label>
+                                    <div class="relative"><input type="password" id="regConfirmPassword" required
+                                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                                            placeholder="Confirm your password"> <button type="button"
+                                            onclick="togglePasswordVisibility('regConfirmPassword')"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors">
+                                            <svg id="regConfirmPasswordIcon" class="w-5 h-5" fill="none"
+                                                stroke="currentColor" viewbox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803m5.596-3.856a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg></button>
+                                    </div>
+                                </div>
+                                <div id="registerMsg" class="hidden text-sm"></div><button type="submit"
+                                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all transform hover:scale-[1.02]">Create
+                                    Account</button>
+                            </form>
+                        </div>
+                    </div>
+                </section><!-- Features Section -->
+                <section class="py-20 px-6 bg-slate-900/50">
+                    <div class="max-w-7xl mx-auto">
+                        <h2 class="text-3xl font-bold text-center mb-12">Why Use JobTracker?</h2>
+                        <div class="grid md:grid-cols-3 gap-8">
+                            <div
+                                class="card-gradient p-6 rounded-xl border border-slate-700/50 hover:border-indigo-500/50 transition-all">
+                                <div
+                                    class="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
+                                    <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold mb-2">Easy Organization</h3>
+                                <p class="text-slate-400">Keep all your job applications organized in one place with
+                                    status tracking.
+                                </p>
+                            </div>
+                            <div
+                                class="card-gradient p-6 rounded-xl border border-slate-700/50 hover:border-indigo-500/50 transition-all">
+                                <div
+                                    class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mb-4">
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold mb-2">Quick Updates</h3>
+                                <p class="text-slate-400">Update application status instantly as you progress through
+                                    interviews.</p>
+                            </div>
+                            <div
+                                class="card-gradient p-6 rounded-xl border border-slate-700/50 hover:border-indigo-500/50 transition-all">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-4">
+                                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-semibold mb-2">Secure &amp; Private</h3>
+                                <p class="text-slate-400">Your job search data is securely stored and private to you.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- FAQ Section -->
+                <section class="py-20 px-6">
+                    <div class="max-w-4xl mx-auto">
+                        <h2 class="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
+                        <div class="space-y-6">
+                            <div class="card-gradient rounded-xl border border-slate-700/50 overflow-hidden">
+                                <button
+                                    class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold hover:bg-slate-800/50 transition-colors"
+                                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                    <span>Is JobTracker free to use?</span>
+                                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="px-6 py-4 border-t border-slate-700/50 text-slate-400 hidden">
+                                    Yes, JobTracker is completely free to use for organizing your personal job
+                                    applications.
+                                </div>
+                            </div>
+                            <div class="card-gradient rounded-xl border border-slate-700/50 overflow-hidden">
+                                <button
+                                    class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold hover:bg-slate-800/50 transition-colors"
+                                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                    <span>Is my data secure?</span>
+                                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="px-6 py-4 border-t border-slate-700/50 text-slate-400 hidden">
+                                    Your data is stored locally in your browser's local storage. We do not store your
+                                    data on external
+                                    servers, ensuring your privacy.
+                                </div>
+                            </div>
+                            <div class="card-gradient rounded-xl border border-slate-700/50 overflow-hidden">
+                                <button
+                                    class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold hover:bg-slate-800/50 transition-colors"
+                                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                    <span>Can I export my data?</span>
+                                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="px-6 py-4 border-t border-slate-700/50 text-slate-400 hidden">
+                                    Yes, you can generate a PDF CV based on your profile information directly from the
+                                    Profile page.
+                                </div>
+                            </div>
+                            <div class="card-gradient rounded-xl border border-slate-700/50 overflow-hidden">
+                                <button
+                                    class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold hover:bg-slate-800/50 transition-colors"
+                                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                    <span>How many applications can I track?</span>
+                                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor"
+                                        viewbox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div class="px-6 py-4 border-t border-slate-700/50 text-slate-400 hidden">
+                                    You can track as many applications as your browser's local storage allows, which is
+                                    typically plenty
+                                    for hundreds of applications.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-slate-900/50 border-t border-slate-700/50 mt-auto">
+            <div class="max-w-7xl mx-auto px-6 py-12">
+                <div class="grid md:grid-cols-3 gap-8 mb-8">
+                    <div>
+                        <h3 class="font-bold mb-4">JobTracker</h3>
+                        <p class="text-slate-400 text-sm">Track your job applications with ease and land your dream
+                            role.</p>
+                    </div>
+                    <div>
+                        <h3 class="font-bold mb-4">Quick Links</h3>
+                        <ul class="space-y-2 text-sm text-slate-400">
+                            <li><button onclick="navigateTo('home')"
+                                    class="hover:text-indigo-400 transition-colors">Home</button>
+                            </li>
+                            <li><button onclick="navigateTo('contact')"
+                                    class="hover:text-indigo-400 transition-colors">Contact</button></li>
+                            <li><button onclick="navigateTo('profile')"
+                                    class="hover:text-indigo-400 transition-colors">Profile</button></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold mb-4">Get Started</h3><button onclick="scrollToAuthForm('register')"
+                            class="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">Create your account
+                            today</button>
+                    </div>
+                </div>
+                <div class="border-t border-slate-700/50 pt-8">
+                    <p class="text-center text-slate-400 text-sm">© 2026 JobTracker. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeForgotPasswordModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm p-6">
+            <div class="card-gradient rounded-2xl p-8 border border-slate-700/50">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Reset Password</h2><button onclick="closeForgotPasswordModal()"
+                        class="text-slate-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg></button>
+                </div>
+                <form id="forgotPasswordForm" onsubmit="handleForgotPassword(event)" class="space-y-4">
+                    <div><label for="forgotEmail" class="block text-sm font-medium text-slate-300 mb-2">Enter your
+                            Email</label>
+                        <input type="email" id="forgotEmail" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="your@email.com">
+                    </div>
+                    <div id="forgotMsg" class="hidden text-sm"></div><button type="submit"
+                        class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all">Send
+                        Reset Link</button> <button type="button" onclick="closeForgotPasswordModal()"
+                        class="w-full py-3 bg-slate-700 rounded-xl font-semibold hover:bg-slate-600 transition-all">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal (for footer links) -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAuthModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-6">
+            <div class="card-gradient rounded-2xl p-8 border border-slate-700/50">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="authModalTitle" class="text-2xl font-bold">Login</h2><button onclick="closeAuthModal()"
+                        class="text-slate-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg></button>
+                </div>
+                <div class="flex gap-4 mb-6"><button onclick="switchAuthTab('login')" id="authLoginTab"
+                        class="flex-1 py-2 text-center font-semibold border-b-2 border-indigo-500 text-indigo-400">Login</button>
+                    <button onclick="switchAuthTab('register')" id="authRegisterTab"
+                        class="flex-1 py-2 text-center font-semibold border-b-2 border-transparent text-slate-400 hover:text-white">Register</button>
+                </div><!-- Login Form -->
+                <form id="authLoginForm" onsubmit="handleLogin(event)" class="space-y-4 hidden">
+                    <div><label for="authLoginUserId" class="block text-sm font-medium text-slate-300 mb-2">User
+                            ID</label> <input type="text" id="authLoginUserId" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="Enter your user ID">
+                    </div>
+                    <div><label for="authLoginPassword"
+                            class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                        <input type="password" id="authLoginPassword" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="Enter your password">
+                    </div>
+                    <div id="authLoginError" class="hidden text-red-400 text-sm"></div><button type="submit"
+                        class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all">Login</button>
+                </form><!-- Register Form -->
+                <form id="authRegisterForm" onsubmit="handleRegister(event)" class="space-y-4">
+                    <div><label for="authRegUserId" class="block text-sm font-medium text-slate-300 mb-2">Choose User
+                            ID</label>
+                        <input type="text" id="authRegUserId" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="Create a user ID">
+                    </div>
+                    <div><label for="authRegEmail" class="block text-sm font-medium text-slate-300 mb-2">Email</label>
+                        <input type="email" id="authRegEmail" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="Enter your email">
+                    </div>
+                    <div><label for="authRegPassword"
+                            class="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                        <input type="password" id="authRegPassword" required
+                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                            placeholder="Create a password">
+                    </div>
+                    <div id="authRegMsg" class="hidden text-sm"></div><button type="submit"
+                        class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all">Create
+                        Account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div class="card-gradient px-6 py-4 rounded-xl border border-slate-700/50 flex items-center gap-3"><span
+                id="toastIcon"></span> <span id="toastMessage"></span>
+        </div>
+    </div>
+    <script src="js/common.js"></script>
+</body>
+
+</html>
