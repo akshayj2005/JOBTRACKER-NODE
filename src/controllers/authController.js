@@ -106,24 +106,56 @@ exports.forgotPassword = async (req, res) => {
 
 exports.testEmail = async (req, res) => {
     try {
-        await notificationService.transporter.verify();
-        res.json({
+        const results = {
             status: 'success',
-            message: 'SMTP Connection Verified Successfully',
-            config: {
-                host: process.env.EMAIL_HOST,
-                port: process.env.EMAIL_PORT,
-                user: process.env.EMAIL_USER
+            diagnostics: {}
+        };
+
+        // 1. Check Resend (Primary for Cloud)
+        if (notificationService.resend) {
+            try {
+                // Just a basic check, we can't 'verify' a key without sending usually
+                // but we can check if it's initialized
+                results.diagnostics.resend = {
+                    status: 'initialized',
+                    provider: 'Resend (HTTP)',
+                    fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+                };
+            } catch (err) {
+                results.diagnostics.resend = { status: 'error', error: err.message };
             }
-        });
+        } else {
+            results.diagnostics.resend = { status: 'not_configured', message: 'RESEND_API_KEY missing' };
+        }
+
+        // 2. Check SMTP (Fallback)
+        try {
+            await notificationService.transporter.verify();
+            results.diagnostics.smtp = {
+                status: 'success',
+                message: 'SMTP Connection Verified',
+                config: {
+                    host: process.env.EMAIL_HOST,
+                    port: process.env.EMAIL_PORT,
+                    user: process.env.EMAIL_USER
+                }
+            };
+        } catch (error) {
+            results.diagnostics.smtp = {
+                status: 'error',
+                message: 'SMTP Connection Failed (Expected on Render Free Tier)',
+                details: error.message,
+                code: error.code
+            };
+        }
+
+        res.json(results);
     } catch (error) {
-        console.error('SMTP Verification Error:', error);
+        console.error('Email Diagnosis Error:', error);
         res.status(500).json({
             status: 'error',
-            error: 'SMTP Connection Failed',
-            details: error.message,
-            code: error.code,
-            command: error.command
+            error: 'Diagnostic process failed',
+            details: error.message
         });
     }
 };

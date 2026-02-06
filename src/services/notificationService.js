@@ -150,18 +150,7 @@ class NotificationService {
 </html>
         `;
 
-        try {
-            const info = await this.transporter.sendMail({
-                from: `"JobTracker Security" <${process.env.EMAIL_USER}>`,
-                to: email,
-                subject: subject,
-                html: html
-            });
-            return info;
-        } catch (error) {
-            console.error('Error sending forgot password email:', error);
-            throw error;
-        }
+        return await this.sendEmail(email, subject, html, 'JobTracker Security');
     }
 
     /**
@@ -182,20 +171,7 @@ class NotificationService {
 
         const html = this.generateEmailTemplate(interview, jobData, user, interval, interviewDate);
 
-        try {
-            const info = await this.transporter.sendMail({
-                from: `"JobTracker" <${process.env.EMAIL_USER}>`,
-                to: user.email,
-                subject: subject,
-                html: html
-            });
-
-            console.log(`Email sent: ${info.messageId}`);
-            return info;
-        } catch (error) {
-            console.error('Error sending email:', error);
-            throw error;
-        }
+        return await this.sendEmail(user.email, subject, html);
     }
 
     /**
