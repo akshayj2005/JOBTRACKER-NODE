@@ -9,14 +9,19 @@ class NotificationService {
     }
 
     createTransporter() {
+        const port = parseInt(process.env.EMAIL_PORT) || 587;
         // Create email transporter
         return nodemailer.createTransport({
             host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-            port: process.env.EMAIL_PORT || 587,
-            secure: false, // true for 465, false for other ports
+            port: port,
+            secure: port === 465, // true for 465 (SSL), false for 587 (TLS)
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS
+            },
+            tls: {
+                // Do not fail on invalid certs (common issue on cloud environments)
+                rejectUnauthorized: false
             }
         });
     }
