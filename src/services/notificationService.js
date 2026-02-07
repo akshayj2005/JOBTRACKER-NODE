@@ -1,48 +1,76 @@
 const schedule = require('node-schedule');
-const { Resend } = require('resend');
+const { google } = require('googleapis');
 require('dotenv').config();
 
 class NotificationService {
     constructor() {
         this.scheduledJobs = new Map(); // Store scheduled jobs by ID
-        this.resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-        if (this.resend) {
-            console.log('Resend Email Service initialized (Resend-Only Mode)');
+        const clientId = process.env.GMAIL_CLIENT_ID;
+        const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+        const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+        const redirectUri = process.env.GMAIL_REDIRECT_URI || 'https://developers.google.com/oauthplayground';
+
+        if (clientId && clientSecret && refreshToken) {
+            const oauth2Client = new google.auth.OAuth2(
+                clientId,
+                clientSecret,
+                redirectUri
+            );
+
+            oauth2Client.setCredentials({ refresh_token: refreshToken });
+            this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+            console.log('Gmail API Service initialized (OAuth2 Mode)');
         } else {
-            console.warn('CRITICAL: RESEND_API_KEY missing. Emails will NOT be sent.');
+            this.gmail = null;
+            console.warn('CRITICAL: Gmail API credentials missing. Emails will NOT be sent.');
+            console.log('Required: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
         }
     }
 
     /**
-     * Internal helper to send email using Resend
+     * Internal helper to send email using Gmail REST API
      */
     async sendEmail(to, subject, html, fromName = 'JobTracker') {
-        if (!this.resend) {
-            console.error('Cannot send email: Resend is not configured.');
+        if (!this.gmail) {
+            console.error('Cannot send email: Gmail API is not configured.');
             return null;
         }
 
         try {
-            // IMPORTANT: Resend free tier uses 'onboarding@resend.dev' by default
-            const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+            const fromEmail = process.env.EMAIL_USER || 'me';
 
-            const { data, error } = await this.resend.emails.send({
-                from: `${fromName} <${fromEmail}>`,
-                to: [to],
-                subject: subject,
-                html: html,
+            // Build RFC822/MIME message
+            const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
+            const messageParts = [
+                `From: ${fromName} <${fromEmail}>`,
+                `To: ${to}`,
+                'Content-Type: text/html; charset=utf-8',
+                'MIME-Version: 1.0',
+                `Subject: ${utf8Subject}`,
+                '',
+                html,
+            ];
+            const message = messageParts.join('\n');
+
+            // Encode to Base64URL
+            const encodedMessage = Buffer.from(message)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            const res = await this.gmail.users.messages.send({
+                userId: 'me',
+                requestBody: {
+                    raw: encodedMessage,
+                },
             });
 
-            if (error) {
-                console.error('Resend API Error:', error);
-                throw error;
-            } else {
-                console.log('Email sent successfully via Resend:', data.id);
-                return data;
-            }
+            console.log('Email sent successfully via Gmail API:', res.data.id);
+            return res.data;
         } catch (err) {
-            console.error('Resend Exception:', err);
+            console.error('Gmail API Exception:', err);
             throw err;
         }
     }

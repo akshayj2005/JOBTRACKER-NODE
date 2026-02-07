@@ -112,15 +112,15 @@ exports.testEmail = async (req, res) => {
             diagnostics: {}
         };
 
-        // Check Resend (Exclusively used for Cloud)
-        if (notificationService.resend) {
-            results.diagnostics.resend = {
+        // Check Gmail API (Exclusively used for Cloud)
+        if (notificationService.gmail) {
+            results.diagnostics.gmail = {
                 status: 'initialized',
-                provider: 'Resend (HTTP)',
-                fromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+                provider: 'Gmail API (OAuth2)',
+                fromEmail: process.env.EMAIL_USER || 'me'
             };
         } else {
-            results.diagnostics.resend = { status: 'not_configured', message: 'RESEND_API_KEY missing' };
+            results.diagnostics.gmail = { status: 'not_configured', message: 'Gmail API credentials missing' };
             results.status = 'partial_success';
         }
 
