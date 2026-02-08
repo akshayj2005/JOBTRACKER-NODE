@@ -63,6 +63,43 @@ app.post('/api/upload', upload.single('profileImage'), (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+// Initialize Application Logic on Startup
+app.listen(PORT, async () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+
+    // --- Reschedule Notifications on Restart ---
+    try {
+        const { readJobs } = require('./src/controllers/jobController');
+        const User = require('./src/models/User');
+        const notificationService = require('./src/services/notificationService');
+
+        console.log('🔄 valid jobs for upcoming notifications...');
+        const allJobs = readJobs();
+        let count = 0;
+
+        for (const job of allJobs) {
+            if (!job.rounds || job.rounds === '[]') continue;
+
+            // Get user for this job
+            const user = await User.findOne({ userId: job.userId || job.user_id });
+            if (!user) continue;
+
+            let rounds = [];
+            try {
+                rounds = typeof job.rounds === 'string' ? JSON.parse(job.rounds) : job.rounds;
+            } catch (e) { continue; }
+
+            if (Array.isArray(rounds)) {
+                rounds.forEach((round, index) => {
+                    if (round.datetime) {
+                        const scheduled = notificationService.scheduleInterviewNotifications(round, job, user, job.id, index);
+                        if (Object.keys(scheduled).length > 0) count++;
+                    }
+                });
+            }
+        }
+        console.log(`✅ Rescheduled notifications for ${count} rounds across all jobs.`);
+    } catch (err) {
+        console.error('❌ Error during startup notification scheduling:', err);
+    }
 });

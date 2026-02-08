@@ -1,11 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const Job = require('../models/Job');
+const User = require('../models/User');
+const notificationService = require('../services/notificationService');
 
 const jobsFilePath = path.join(__dirname, '../data/jobs.json');
 
 // Helper to read jobs from file
-const readJobs = () => {
+exports.readJobs = () => {
     try {
         if (!fs.existsSync(jobsFilePath)) return [];
         const data = fs.readFileSync(jobsFilePath, 'utf8');
@@ -15,6 +17,8 @@ const readJobs = () => {
         return [];
     }
 };
+
+const readJobs = exports.readJobs;
 
 // Helper to write jobs to file
 const writeJobs = (jobs) => {
@@ -36,7 +40,7 @@ exports.getAllJobs = (req, res) => {
     res.json(filteredJobs);
 };
 
-exports.createJob = (req, res) => {
+exports.createJob = async (req, res) => {
     const userId = req.headers['x-user-id'] || req.body.user_id || req.body.userId;
     if (!userId) return res.status(401).json({ error: 'User ID required' });
 
@@ -59,13 +63,34 @@ exports.createJob = (req, res) => {
 
     jobs.push(newJob);
     if (writeJobs(jobs)) {
+        // Schedule Notifications
+        try {
+            const user = await User.findOne({ userId });
+            if (user && newJob.rounds) {
+                let rounds = [];
+                try {
+                    rounds = typeof newJob.rounds === 'string' ? JSON.parse(newJob.rounds) : newJob.rounds;
+                } catch (e) { rounds = []; }
+
+                if (Array.isArray(rounds)) {
+                    rounds.forEach((round, index) => {
+                        if (round.datetime) {
+                            notificationService.scheduleInterviewNotifications(round, newJob, user, newJob.id, index);
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Error scheduling notifications for new job:', err);
+        }
+
         res.status(201).json(newJob);
     } else {
         res.status(500).json({ error: 'Failed to save job' });
     }
 };
 
-exports.updateJob = (req, res) => {
+exports.updateJob = async (req, res) => {
     const { id } = req.params;
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'User ID required' });
@@ -81,6 +106,29 @@ exports.updateJob = (req, res) => {
     jobs[index] = { ...jobs[index], ...updatedJobData, userId }; // Ensure userId isn't overwritten
 
     if (writeJobs(jobs)) {
+        // Update Notifications
+        try {
+            notificationService.cancelJobNotifications(id); // Cancel old ones
+
+            const user = await User.findOne({ userId });
+            if (user && jobs[index].rounds) {
+                let rounds = [];
+                try {
+                    rounds = typeof jobs[index].rounds === 'string' ? JSON.parse(jobs[index].rounds) : jobs[index].rounds;
+                } catch (e) { rounds = []; }
+
+                if (Array.isArray(rounds)) {
+                    rounds.forEach((round, roundIndex) => {
+                        if (round.datetime) {
+                            notificationService.scheduleInterviewNotifications(round, jobs[index], user, id, roundIndex);
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Error scheduling notifications for updated job:', err);
+        }
+
         res.json(jobs[index]);
     } else {
         res.status(500).json({ error: 'Failed to update job' });
@@ -102,6 +150,13 @@ exports.deleteJob = (req, res) => {
     }
 
     if (writeJobs(jobs)) {
+        // Cancel Notifications
+        try {
+            notificationService.cancelJobNotifications(id);
+        } catch (err) {
+            console.error('Error canceling notifications:', err);
+        }
+
         res.json({ message: 'Job deleted successfully' });
     } else {
         res.status(500).json({ error: 'Failed to delete job' });

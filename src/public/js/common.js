@@ -1185,18 +1185,7 @@ async function handleJobSubmit(e) {
       const savedJob = resultData;
       await fetchJobs();
 
-      // Schedule notifications
-      const userInfo = {
-        ...(registeredUsers[currentUser] || {}),
-        id: currentUser,
-        notificationPreferences: { email: true, intervals: ['1day', '6hrs', '1hr', 'exact'] }
-      };
-
-      fetch('/api/notifications/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job: savedJob, user: userInfo })
-      }).catch(err => console.error('Error scheduling notifications:', err));
+      // Notifications are now scheduled automatically by the backend
 
       closeModal();
       showToast(editingId ? 'Application updated!' : 'Application added!', 'success');
