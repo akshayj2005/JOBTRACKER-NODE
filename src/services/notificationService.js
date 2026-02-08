@@ -116,7 +116,7 @@ class NotificationService {
                 this.scheduledJobs.set(jobKey, scheduledJob);
                 scheduledNotifications[interval] = jobKey;
 
-                console.log(`Scheduled ${interval} notification for ${interview.name} at ${notificationTime}`);
+                console.log(`Scheduled ${interval} notification for ${interview.round || interview.name || 'Interview'} at ${notificationTime}`);
             } else {
                 console.log(`Skipping ${interval} notification (time has passed)`);
             }
@@ -199,9 +199,10 @@ class NotificationService {
         };
 
         const isStartingNow = interval === 'exact';
+        const roundName = interview.round || interview.name || 'Interview';
         const mainMessage = isStartingNow
-            ? `Your <strong>${interview.name}</strong> is starting now, good luck!`
-            : `Your <strong>${interview.name}</strong> will be starting soon.`;
+            ? `Your <strong>${roundName}</strong> is starting now, good luck!`
+            : `Your <strong>${roundName}</strong> will be starting soon.`;
 
         const formattedDate = interviewDate.toLocaleDateString('en-US', {
             weekday: 'long',
@@ -216,43 +217,43 @@ class NotificationService {
         });
 
         return `
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px; }
-        .message-box { background-color: ${isStartingNow ? '#fff5f5' : '#f0f4ff'}; border: 1px solid ${isStartingNow ? '#feb2b2' : '#c3dafe'}; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 25px; }
-        .interview-details { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
-        .detail-row { margin: 10px 0; }
-        .label { font-weight: bold; color: #555; }
-        .value { color: #333; }
-        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔔 Interview Reminder</h1>
-            <p style="margin: 10px 0 0 0;">${isStartingNow ? 'Starting Now' : 'Upcoming Interview'}</p>
-        </div>
-        <div class="content">
-            <div class="message-box">
-                <p style="margin: 0; font-size: 18px; color: #2d3748;">${mainMessage}</p>
-                ${!isStartingNow ? `<p style="margin: 10px 0 0 0; color: #4a5568; font-size: 14px;">(Time left: ${timeLabels[interval]})</p>` : ''}
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px; }
+            .message-box { background-color: ${isStartingNow ? '#fff5f5' : '#f0f4ff'}; border: 1px solid ${isStartingNow ? '#feb2b2' : '#c3dafe'}; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 25px; }
+            .interview-details { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+            .detail-row { margin: 10px 0; }
+            .label { font-weight: bold; color: #555; }
+            .value { color: #333; }
+            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔔 Interview Reminder</h1>
+                <p style="margin: 10px 0 0 0;">${isStartingNow ? 'Starting Now' : 'Upcoming Interview'}</p>
             </div>
-            
-            <p>Hi there,</p>
-            <p>Here are the details for your interview:</p>
-            
-            <div class="interview-details">
-                <div class="detail-row">
-                    <span class="label">Round:</span>
-                    <span class="value">${interview.name}</span>
+            <div class="content">
+                <div class="message-box">
+                    <p style="margin: 0; font-size: 18px; color: #2d3748;">${mainMessage}</p>
+                    ${!isStartingNow ? `<p style="margin: 10px 0 0 0; color: #4a5568; font-size: 14px;">(Time left: ${timeLabels[interval]})</p>` : ''}
                 </div>
+                
+                <p>Hi there,</p>
+                <p>Here are the details for your interview:</p>
+                
+                <div class="interview-details">
+                    <div class="detail-row">
+                        <span class="label">Round:</span>
+                        <span class="value">${roundName}</span>
+                    </div>
                 <div class="detail-row">
                     <span class="label">Company:</span>
                     <span class="value">${jobData.company}</span>

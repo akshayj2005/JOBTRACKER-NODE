@@ -17,5 +17,32 @@
     "experience": "[]",
     "education": "[]",
     "certifications": "[]"
+  },
+  {
+    "id": "1770567124376",
+    "userId": "akshayjain",
+    "company": "Google",
+    "position": "Head Software Eng",
+    "status": "Applied",
+    "appliedDate": null,
+    "notes": "",
+    "rounds": "[{\"round\":\"final\",\"datetime\":\"2026-02-08T21:49\"}]",
+    "full_name": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "professional_summary": "",
+    "skills": "[]",
+    "experience": "[]",
+    "education": "[]",
+    "certifications": "[]",
+    "projects": "[]",
+    "profile_image": "",
+    "linkedin": "",
+    "github": "",
+    "twitter": "",
+    "website": "",
+    "applied_date": "2026-02-08",
+    "user_id": "akshayjain"
   }
 ]

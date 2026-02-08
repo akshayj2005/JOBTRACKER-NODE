@@ -65,12 +65,26 @@ exports.createJob = async (req, res) => {
     if (writeJobs(jobs)) {
         // Schedule Notifications
         try {
-            const user = await User.findOne({ userId });
+            let user = await User.findOne({ userId });
+
+            // Fallback user object if not in DB but we have ID (for session-based or migrated users)
+            if (!user && userId) {
+                user = { userId, email: '', notificationPreferences: { email: true, intervals: ['1day', '6hrs', '1hr', 'exact'] } };
+            }
+
             if (user && newJob.rounds) {
                 let rounds = [];
                 try {
-                    rounds = typeof newJob.rounds === 'string' ? JSON.parse(newJob.rounds) : newJob.rounds;
-                } catch (e) { rounds = []; }
+                    // Handle both stringified JSON and direct array
+                    if (typeof newJob.rounds === 'string') {
+                        rounds = JSON.parse(newJob.rounds);
+                    } else if (Array.isArray(newJob.rounds)) {
+                        rounds = newJob.rounds;
+                    }
+                } catch (e) {
+                    console.error('Error parsing rounds for notification:', e);
+                    rounds = [];
+                }
 
                 if (Array.isArray(rounds)) {
                     rounds.forEach((round, index) => {
@@ -110,12 +124,25 @@ exports.updateJob = async (req, res) => {
         try {
             notificationService.cancelJobNotifications(id); // Cancel old ones
 
-            const user = await User.findOne({ userId });
+            let user = await User.findOne({ userId });
+            // Fallback user object if not in DB but we have ID
+            if (!user && userId) {
+                user = { userId, email: '', notificationPreferences: { email: true, intervals: ['1day', '6hrs', '1hr', 'exact'] } };
+            }
+
             if (user && jobs[index].rounds) {
                 let rounds = [];
                 try {
-                    rounds = typeof jobs[index].rounds === 'string' ? JSON.parse(jobs[index].rounds) : jobs[index].rounds;
-                } catch (e) { rounds = []; }
+                    // Handle both stringified JSON and direct array
+                    if (typeof jobs[index].rounds === 'string') {
+                        rounds = JSON.parse(jobs[index].rounds);
+                    } else if (Array.isArray(jobs[index].rounds)) {
+                        rounds = jobs[index].rounds;
+                    }
+                } catch (e) {
+                    console.error('Error parsing rounds for notification update:', e);
+                    rounds = [];
+                }
 
                 if (Array.isArray(rounds)) {
                     rounds.forEach((round, roundIndex) => {
@@ -127,6 +154,7 @@ exports.updateJob = async (req, res) => {
             }
         } catch (err) {
             console.error('Error scheduling notifications for updated job:', err);
+            // Don't fail the request if notifications fail
         }
 
         res.json(jobs[index]);

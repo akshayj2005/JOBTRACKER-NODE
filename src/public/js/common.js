@@ -1082,7 +1082,7 @@ function openAddModal() {
 
 function openEditModal(job) {
   document.getElementById('modalTitle').textContent = 'Edit Application';
-  document.getElementById('editingJobId').value = job.__backendId;
+  document.getElementById('editingJobId').value = job.id;
   document.getElementById('jobCompany').value = job.company;
   document.getElementById('jobPosition').value = job.position;
   document.getElementById('jobStatus').value = job.status;
@@ -1273,7 +1273,7 @@ function renderJobs() {
   }
 
   container.innerHTML = userJobs.map(job => `
-        <div class="card-gradient rounded-xl p-5 border border-slate-700/50 hover:border-indigo-500/30 transition-all slide-in" data-job-id="${job.__backendId}">
+        <div class="card-gradient rounded-xl p-5 border border-slate-700/50 hover:border-indigo-500/30 transition-all slide-in" data-job-id="${job.id}">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex-1">
               <div class="flex items-center gap-3 mb-2">
