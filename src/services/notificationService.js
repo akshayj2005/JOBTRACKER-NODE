@@ -167,6 +167,47 @@ class NotificationService {
     }
 
     /**
+     * Send OTP verification email
+     */
+    async sendOTPEmail(email, otp) {
+        const subject = '🔐 Verify Your Email - JobTracker';
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; text-align: center; }
+        .otp-box { background-color: #f0f4ff; border: 1px solid #c3dafe; padding: 20px; border-radius: 8px; font-size: 32px; font-weight: bold; color: #4c51bf; letter-spacing: 5px; margin: 25px 0; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Verify Email</h1>
+        </div>
+        <div class="content">
+            <p>Welcome to JobTracker!</p>
+            <p>Please use the following code to verify your email address:</p>
+            <div class="otp-box">${otp}</div>
+            <p>This code will expire in 10 minutes.</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated message from JobTracker</p>
+        </div>
+    </div>
+</body>
+</html>
+        `;
+
+        return await this.sendEmail(email, subject, html, 'JobTracker Security');
+    }
+
+    /**
      * Send interview reminder email
      */
     async sendInterviewReminder(interview, jobData, user, interval) {

@@ -261,6 +261,10 @@ async function handleLogin(e) {
     const data = await response.json();
 
     if (response.ok) {
+      if (data.isAdmin) {
+        window.location.href = '/admin';
+        return;
+      }
       currentUser = userId;
       localStorage.setItem('currentUser', currentUser);
       resetIdleTimer();
@@ -276,6 +280,13 @@ async function handleLogin(e) {
       if (errorEl) {
         errorEl.textContent = data.error || 'Invalid user ID or password';
         errorEl.classList.remove('hidden');
+
+        if (data.requiresVerification) {
+          // Show OTP Modal
+          document.getElementById('otpModal').classList.remove('hidden');
+          document.getElementById('otpUserId').value = data.userId || userId;
+          if (isModal) closeAuthModal();
+        }
       }
     }
   } catch (err) {
@@ -287,11 +298,13 @@ async function handleLogin(e) {
 async function handleRegister(e) {
   e.preventDefault();
   const isModal = e.target.id === 'authRegisterForm';
+  const fullNameInput = isModal ? document.getElementById('authRegFullName') : document.getElementById('regFullName');
   const userIdInput = isModal ? document.getElementById('authRegUserId') : document.getElementById('regUserId');
   const emailInput = isModal ? document.getElementById('authRegEmail') : document.getElementById('regEmail');
   const passwordInput = isModal ? document.getElementById('authRegPassword') : document.getElementById('regPassword');
   const confirmPasswordInput = isModal ? null : document.getElementById('regConfirmPassword');
 
+  const fullName = fullNameInput ? fullNameInput.value.trim() : '';
   const userId = userIdInput.value.trim();
   const email = emailInput.value.trim();
   const password = passwordInput.value;
@@ -316,23 +329,30 @@ async function handleRegister(e) {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, email, password })
+      body: JSON.stringify({ userId, email, password, fullName })
     });
 
     const data = await response.json();
 
     if (response.ok) {
-      msgEl.textContent = 'Account created! Please login.';
-      msgEl.classList.remove('hidden', 'text-red-400');
-      msgEl.classList.add('text-green-400');
+      if (data.requiresVerification) {
+        // Show OTP Modal
+        document.getElementById('otpModal').classList.remove('hidden');
+        document.getElementById('otpUserId').value = userId;
+        if (isModal) closeAuthModal();
+      } else {
+        msgEl.textContent = 'Account created! Please login.';
+        msgEl.classList.remove('hidden', 'text-red-400');
+        msgEl.classList.add('text-green-400');
 
-      setTimeout(() => {
-        switchAuthTab('login');
-        const loginId = isModal ? 'authLoginUserId' : 'loginUserId';
-        document.getElementById(loginId).value = userId;
-        e.target.reset();
-        msgEl.classList.add('hidden');
-      }, 1500);
+        setTimeout(() => {
+          switchAuthTab('login');
+          const loginId = isModal ? 'authLoginUserId' : 'loginUserId';
+          document.getElementById(loginId).value = userId;
+          e.target.reset();
+          msgEl.classList.add('hidden');
+        }, 1500);
+      }
     } else {
       msgEl.textContent = data.error || 'Registration failed';
       msgEl.classList.remove('hidden', 'text-green-400');
@@ -340,6 +360,69 @@ async function handleRegister(e) {
     }
   } catch (err) {
     console.error('Registration error:', err);
+    showToast('Connection error', 'error');
+  }
+}
+
+async function handleVerifyOTP(e) {
+  e.preventDefault();
+  const userId = document.getElementById('otpUserId').value;
+  const otp = document.getElementById('otpInput').value.trim();
+  const msgEl = document.getElementById('otpMsg');
+
+  try {
+    const response = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, otp })
+    });
+    const data = await response.json();
+
+    if (response.ok) {
+      msgEl.textContent = 'Verified! Logging you in...';
+      msgEl.classList.remove('hidden', 'text-red-400');
+      msgEl.classList.add('text-green-400');
+      setTimeout(() => {
+        document.getElementById('otpModal').classList.add('hidden');
+        // Auto-login flow could be triggered here or just redirect to login
+        switchAuthTab('login');
+        const modal = document.getElementById('authModal');
+        if (!modal.classList.contains('hidden')) {
+          document.getElementById('authLoginUserId').value = userId;
+        } else {
+          document.getElementById('loginUserId').value = userId;
+          const authCard = document.getElementById('authCard');
+          if (authCard) authCard.scrollIntoView();
+        }
+        showToast('Email verified. Please login.', 'success');
+      }, 1500);
+    } else {
+      msgEl.textContent = data.error || 'Verification failed';
+      msgEl.classList.remove('hidden', 'text-green-400');
+      msgEl.classList.add('text-red-400');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Connection error', 'error');
+  }
+}
+
+async function resendOTP() {
+  const userId = document.getElementById('otpUserId').value;
+  if (!userId) return showToast('Error: User ID missing', 'error');
+
+  try {
+    const response = await fetch('/api/auth/resend-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    if (response.ok) {
+      showToast('New code sent to your email', 'success');
+    } else {
+      showToast('Failed to resend code', 'error');
+    }
+  } catch (err) {
     showToast('Connection error', 'error');
   }
 }
@@ -612,7 +695,7 @@ function handleContact(e) {
 }
 
 // Profile
-function loadProfile() {
+async function loadProfile() {
   if (!currentUser) return;
 
   const profileInfo = jobs.find(j => j.company === 'Profile' && j.position === 'Professional');
@@ -630,15 +713,40 @@ function loadProfile() {
   setVal('profileUserId', currentUser);
 
   // Try to find email from registeredUsers if not in profileData (or if profileData is empty)
+  // Try to find email from registeredUsers if not in profileData (or if profileData is empty)
+  // Fix: Fetch from API if available
   let userEmail = profileData.email;
-  if (!userEmail && registeredUsers[currentUser]) {
-    const stored = registeredUsers[currentUser];
-    userEmail = (typeof stored === 'object') ? stored.email : '';
+  let userFullName = profileData.full_name;
+  let userPhone = profileData.phone;
+
+  if (!userEmail) {
+    if (typeof fetch !== 'undefined') {
+      // Sync with backend user data
+      try {
+        const res = await fetch(`/api/auth/profile/${currentUser}`);
+        if (res.ok) {
+          const uData = await res.json();
+          userEmail = uData.email;
+          userFullName = uData.fullName || userFullName;
+          userPhone = uData.phone || userPhone;
+          if (!profileData.profile_image && uData.profileImage) {
+            setVal('profileImageUrl', uData.profileImage);
+            updateProfileImagePreview(uData.profileImage);
+          }
+        }
+      } catch (e) { console.error('Profile sync error:', e); }
+    }
+
+    // Legacy fallback
+    if (!userEmail && registeredUsers[currentUser]) {
+      const stored = registeredUsers[currentUser];
+      userEmail = (typeof stored === 'object') ? stored.email : '';
+    }
   }
 
-  setVal('fullName', profileData.full_name);
+  setVal('fullName', userFullName);
   setVal('email', userEmail);
-  setVal('phone', profileData.phone);
+  setVal('phone', userPhone);
   setVal('location', profileData.location);
   setVal('summary', profileData.professional_summary);
   setVal('profileImageUrl', profileData.profile_image);
@@ -730,17 +838,42 @@ async function saveProfile(e) {
     }
 
     if (response.ok) {
-      // ALSO sync core details (FullName, Phone) with Cloud DB (MongoDB)
+      // ALSO sync core details (FullName, Phone, Email) with Cloud DB (MongoDB)
       try {
-        await fetch('/api/auth/profile', {
+        const updateRes = await fetch('/api/auth/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: currentUser,
             fullName: profileInfo.full_name,
-            phone: profileInfo.phone
+            phone: profileInfo.phone,
+            email: profileInfo.email // Send email to check for updates
           })
         });
+
+        const updateData = await updateRes.json();
+
+        // Check if email verification is required
+        if (updateData.requiresVerification) {
+          // Show OTP Modal strictly for Email Change
+          const otpInput = prompt("Enter the verification code sent to " + updateData.pendingEmail);
+          if (otpInput) {
+            const verifyRes = await fetch('/api/auth/verify-email-change', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: currentUser, otp: otpInput })
+            });
+            if (verifyRes.ok) {
+              alert("Email updated successfully!");
+            } else {
+              const vData = await verifyRes.json();
+              alert("Email update failed: " + vData.error);
+            }
+          }
+        } else if (updateData.error) {
+          console.error("Cloud Profile Update Error: ", updateData.error);
+          if (updateData.error.includes('Email')) alert(updateData.error);
+        }
       } catch (err) {
         console.error('Cloud profile sync warning:', err);
       }

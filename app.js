@@ -40,6 +40,25 @@ app.use(express.static(path.join(__dirname, 'src', 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Session & Passport Configuration
+const session = require('express-session');
+const passport = require('./src/config/passport');
+
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'secret',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true, // Refreshes cookie on every response
+    cookie: {
+        secure: false, // Set to true if using HTTPS
+        httpOnly: true,
+        maxAge: 30 * 60 * 1000 // 30 minutes idle timeout
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Set view engine to EJS
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
@@ -54,6 +73,7 @@ app.use('/', pageRoutes);
 app.use('/api/auth', authRoutes); // Updated route path
 app.use('/api/jobs', jobRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/admin', require('./src/routes/adminRoutes'));
 
 // Image Upload Route
 app.post('/api/upload', upload.single('profileImage'), (req, res) => {

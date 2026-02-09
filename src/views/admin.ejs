@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobTracker Admin</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #0f172a;
+            color: #fff;
+        }
+
+        .bg-surface {
+            background-color: #1e293b;
+        }
+
+        .border-surface {
+            border-color: #334155;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                <h1
+                    class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-500">
+                    Admin Dashboard
+                </h1>
+                <p class="text-slate-400 mt-1">Manage users and view statistics</p>
+            </div>
+            <div class="flex gap-4">
+                <a href="/" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Go Home</a>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="bg-surface p-6 rounded-2xl border border-surface">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Total Users</h3>
+                <p class="text-4xl font-bold text-white">
+                    <%= users.length %>
+                </p>
+            </div>
+            <div class="bg-surface p-6 rounded-2xl border border-surface">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">New Users Today</h3>
+                <p class="text-4xl font-bold text-green-400">
+                    <%= newUsersToday.length %>
+                </p>
+            </div>
+        </div>
+
+        <!-- New Users Today Section -->
+        <% if(newUsersToday.length> 0) { %>
+            <section class="mb-10">
+                <h2 class="text-xl font-bold mb-4 text-green-400">New Signups Today</h2>
+                <div class="overflow-x-auto rounded-xl border border-surface">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 font-medium">
+                            <tr>
+                                <th class="px-6 py-4">Full Name</th>
+                                <th class="px-6 py-4">User ID</th>
+                                <th class="px-6 py-4">Email</th>
+                                <th class="px-6 py-4">Auth</th>
+                                <th class="px-6 py-4">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700 bg-surface">
+                            <% newUsersToday.forEach(user=> { %>
+                                <tr class="hover:bg-slate-700/50 transition-colors">
+                                    <td class="px-6 py-4 font-medium">
+                                        <%= user.fullName || '-' %>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-300">
+                                        <%= user.userId %>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-300">
+                                        <%= user.email %>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span
+                                            class="px-2 py-1 rounded text-xs <%= user.authProvider === 'google' ? 'bg-blue-500/20 text-blue-400' : (user.authProvider === 'github' ? 'bg-gray-500/20 text-gray-300' : 'bg-indigo-500/20 text-indigo-400') %>">
+                                            <%= user.authProvider %>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-400">
+                                        <%= new Date(user.createdAt).toLocaleTimeString() %>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <% } %>
+
+                <!-- All Users Section -->
+                <section>
+                    <h2 class="text-xl font-bold mb-4 text-white">All Registered Users</h2>
+                    <div class="overflow-x-auto rounded-xl border border-surface">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-800 text-slate-400 font-medium">
+                                <tr>
+                                    <th class="px-6 py-4">Full Name</th>
+                                    <th class="px-6 py-4">User ID</th>
+                                    <th class="px-6 py-4">Email</th>
+                                    <th class="px-6 py-4">Status</th>
+                                    <th class="px-6 py-4">Joined Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700 bg-surface">
+                                <% users.forEach(user=> { %>
+                                    <tr class="hover:bg-slate-700/50 transition-colors">
+                                        <td class="px-6 py-4 font-medium flex items-center gap-3">
+                                            <% if(user.profileImage) { %>
+                                                <img src="<%= user.profileImage %>"
+                                                    class="w-8 h-8 rounded-full object-cover">
+                                                <% } else { %>
+                                                    <div
+                                                        class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs">
+                                                        <%= (user.fullName || user.userId).charAt(0).toUpperCase() %>
+                                                    </div>
+                                                    <% } %>
+                                                        <%= user.fullName || '-' %>
+                                        </td>
+                                        <td class="px-6 py-4 text-slate-300">
+                                            <%= user.userId %>
+                                        </td>
+                                        <td class="px-6 py-4 text-slate-300">
+                                            <%= user.email %>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <% if(user.isVerified) { %>
+                                                <span class="text-green-400">Verified</span>
+                                                <% } else { %>
+                                                    <span class="text-yellow-400">Pending</span>
+                                                    <% } %>
+                                        </td>
+                                        <td class="px-6 py-4 text-slate-400">
+                                            <%= new Date(user.createdAt).toLocaleDateString() %>
+                                        </td>
+                                    </tr>
+                                    <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+    </div>
+</body>
+
+</html>

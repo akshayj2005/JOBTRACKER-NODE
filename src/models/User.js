@@ -36,7 +36,15 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    otp: { type: String },
+    otpExpires: { type: Date },
+    isVerified: { type: Boolean, default: false },
+    pendingEmail: { type: String, trim: true, lowercase: true },
+    googleId: { type: String },
+    githubId: { type: String },
+    profileImage: { type: String },
+    authProvider: { type: String, default: 'local' }
 });
 
 module.exports = mongoose.model('User', userSchema);
