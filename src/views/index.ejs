@@ -6,8 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Job Tracker - Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/_sdk/element_sdk.js"></script>
-    <script src="/_sdk/data_sdk.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap"
         rel="stylesheet">
@@ -37,6 +36,9 @@
                         class="hidden nav-link hover:text-indigo-400 transition-colors font-medium"></button>
                     <button id="dashboardNavBtn" onclick="navigateTo('dashboard')"
                         class="hidden nav-link hover:text-indigo-400 transition-colors">Dashboard</button>
+                    <button id="adminNavBtn" onclick="window.location.href='/admin'"
+                        class="hidden nav-link hover:text-orange-400 transition-colors font-bold text-orange-500">Admin
+                        Panel</button>
                     <button id="loginHeaderBtn" onclick="scrollToAuthForm('login')"
                         class="bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-500 transition-all">Login</button>
                     <button id="registerHeaderBtn" onclick="scrollToAuthForm('register')"
@@ -374,7 +376,8 @@
                     </div>
                 </div>
                 <div class="border-t border-slate-700/50 pt-8">
-                    <p class="text-center text-slate-400 text-sm">© 2026 JobTracker. All rights reserved. </p>
+                    <p class="text-center text-slate-400 text-sm">© 2026 JobTracker Node • Placement Management System •
+                        All Rights Reserved • Designed By: Akshay Jain</p>
                 </div>
             </div>
         </footer>
@@ -411,9 +414,16 @@
 
     <!-- OTP Verification Modal -->
     <div id="otpModal" class="fixed inset-0 z-[60] hidden">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeOtpModal()"></div>
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm p-6">
-            <div class="card-gradient rounded-2xl p-8 border border-slate-700/50 glow">
+            <div class="card-gradient rounded-2xl p-8 border border-slate-700/50 glow relative">
+                <button onclick="closeOtpModal()"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
                 <div class="text-center mb-6">
                     <h2 class="text-2xl font-bold mb-2">Verify Email</h2>
                     <p class="text-slate-400 text-sm">We sent a 6-digit code to your email.</p>
@@ -496,8 +506,8 @@
                             placeholder="Enter your user ID">
                     </div>
                     <div><label for="authLoginPassword"
-                            class="block text-sm font-medium text-slate-300 mb-2">Password</label>
-                        <input type="password" id="authLoginPassword" required
+                            class="block text-sm font-medium text-slate-300 mb-2">Password</label> <input
+                            type="password" id="authLoginPassword" required
                             class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                             placeholder="Enter your password">
                     </div>
@@ -512,8 +522,7 @@
                             placeholder="Enter your full name">
                     </div>
                     <div><label for="authRegUserId" class="block text-sm font-medium text-slate-300 mb-2">Choose User
-                            ID</label>
-                        <input type="text" id="authRegUserId" required
+                            ID</label> <input type="text" id="authRegUserId" required
                             class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                             placeholder="Create a user ID">
                     </div>
@@ -523,8 +532,8 @@
                             placeholder="Enter your email">
                     </div>
                     <div><label for="authRegPassword"
-                            class="block text-sm font-medium text-slate-300 mb-2">Password</label>
-                        <input type="password" id="authRegPassword" required
+                            class="block text-sm font-medium text-slate-300 mb-2">Password</label> <input
+                            type="password" id="authRegPassword" required
                             class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                             placeholder="Create a password">
                     </div>
@@ -542,6 +551,20 @@
                 id="toastIcon"></span> <span id="toastMessage"></span>
         </div>
     </div>
+    <script id="server-user-data" type="application/json"><%- JSON.stringify(user || null) %></script>
+    <script>
+        (function () {
+            const rawData = document.getElementById('server-user-data').textContent;
+            console.log('EJS Injection [index]:', rawData);
+            try {
+                window.SERVER_USER = JSON.parse(rawData);
+                console.log('Parsed SERVER_USER [index]:', window.SERVER_USER);
+            } catch (e) {
+                console.error('Failed to parse SERVER_USER [index]:', e);
+                window.SERVER_USER = null;
+            }
+        })();
+    </script>
     <script src="js/common.js"></script>
 </body>
 

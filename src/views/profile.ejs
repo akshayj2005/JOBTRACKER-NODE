@@ -37,6 +37,9 @@
                         class="hidden nav-link hover:text-indigo-400 transition-colors font-medium text-indigo-400"></button>
                     <button id="dashboardNavBtn" onclick="navigateTo('dashboard')"
                         class="hidden nav-link hover:text-indigo-400 transition-colors">Dashboard</button>
+                    <button id="adminNavBtn" onclick="window.location.href='/admin'"
+                        class="hidden nav-link hover:text-orange-400 transition-colors font-bold text-orange-500">Admin
+                        Panel</button>
                     <button id="loginHeaderBtn" onclick="scrollToAuthForm('login')"
                         class="bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-500 transition-all">Login</button>
                     <button id="registerHeaderBtn" onclick="scrollToAuthForm('register')"
@@ -124,11 +127,19 @@
                                             type="tel" id="phone"
                                             class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                                             placeholder="+91 1234567890"></div>
-                                    <div class="md:col-span-2"><label for="location"
+                                    <div class="md:col-span-1"><label for="location"
                                             class="block text-sm font-medium text-slate-300 mb-2">Location</label>
                                         <input type="text" id="location"
                                             class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                                             placeholder="City, Country">
+                                    </div>
+                                    <div class="md:col-span-1"><label for="course"
+                                            class="block text-sm font-medium text-slate-300 mb-2">Course *</label>
+                                        <select id="course" required
+                                            class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-white appearance-none cursor-pointer">
+                                            <option value="" disabled selected>Select your course</option>
+                                            <!-- Loaded via JS -->
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -412,7 +423,8 @@
                     </div>
                 </div>
                 <div class="border-t border-slate-700/50 pt-8">
-                    <p class="text-center text-slate-400 text-sm">© 2026 JobTracker. All rights reserved. </p>
+                    <p class="text-center text-slate-400 text-sm">© 2026 JobTracker Node • Placement Management System •
+                        All Rights Reserved • Designed By: Akshay Jain</p>
                 </div>
             </div>
         </footer>

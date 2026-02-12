@@ -10,6 +10,9 @@
         rel="stylesheet">
     <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
         body {
             font-family: 'Space Grotesk', sans-serif;
@@ -39,12 +42,44 @@
                 <p class="text-slate-400 mt-1">Manage users and view statistics</p>
             </div>
             <div class="flex gap-4">
-                <a href="/" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Go Home</a>
+                <button onclick="adminLogout()"
+                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">Go Home</button>
             </div>
         </header>
 
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <script>
+            async function adminLogout() {
+                try {
+                    // Call the logout API
+                    await fetch('/api/auth/logout', { credentials: 'include' });
+
+                    // Clear all persistence
+                    localStorage.removeItem('currentUser');
+                    localStorage.removeItem('currentUserName');
+                    localStorage.removeItem('isAdmin');
+
+                    // Redirect to home
+                    window.location.href = '/';
+                } catch (e) {
+                    console.error('Logout failed:', e);
+                    window.location.href = '/';
+                }
+            }
+        </script>
+
+        <!-- Tabs -->
+        <div class="flex gap-4 mb-8 border-b border-surface">
+            <button onclick="switchAdminTab('users')" id="tab-users"
+                class="px-6 py-3 font-semibold border-b-2 border-orange-500 text-orange-500">User Management</button>
+            <button onclick="switchAdminTab('analytics')" id="tab-analytics"
+                class="px-6 py-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all">Placement
+                Analytics</button>
+            <button onclick="switchAdminTab('config')" id="tab-config"
+                class="px-6 py-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all">Configuration</button>
+        </div>
+
+        <!-- Summary Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10" id="admin-summary-stats">
             <div class="bg-surface p-6 rounded-2xl border border-surface">
                 <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Total Users</h3>
                 <p class="text-4xl font-bold text-white">
@@ -52,60 +87,30 @@
                 </p>
             </div>
             <div class="bg-surface p-6 rounded-2xl border border-surface">
-                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">New Users Today</h3>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">New Today</h3>
                 <p class="text-4xl font-bold text-green-400">
                     <%= newUsersToday.length %>
                 </p>
             </div>
+            <div class="bg-surface p-6 rounded-2xl border border-surface">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Total Companies</h3>
+                <p class="text-4xl font-bold text-blue-400" id="total-companies-count">-</p>
+            </div>
+            <div class="bg-surface p-6 rounded-2xl border border-surface md:col-span-1 min-h-[120px]">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-3">Students per Course</h3>
+                <div id="course-summary-list" class="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                    <p class="text-slate-500 text-sm">Loading...</p>
+                </div>
+            </div>
         </div>
 
-        <!-- New Users Today Section -->
-        <% if(newUsersToday.length> 0) { %>
-            <section class="mb-10">
-                <h2 class="text-xl font-bold mb-4 text-green-400">New Signups Today</h2>
-                <div class="overflow-x-auto rounded-xl border border-surface">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-800 text-slate-400 font-medium">
-                            <tr>
-                                <th class="px-6 py-4">Full Name</th>
-                                <th class="px-6 py-4">User ID</th>
-                                <th class="px-6 py-4">Email</th>
-                                <th class="px-6 py-4">Auth</th>
-                                <th class="px-6 py-4">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700 bg-surface">
-                            <% newUsersToday.forEach(user=> { %>
-                                <tr class="hover:bg-slate-700/50 transition-colors">
-                                    <td class="px-6 py-4 font-medium">
-                                        <%= user.fullName || '-' %>
-                                    </td>
-                                    <td class="px-6 py-4 text-slate-300">
-                                        <%= user.userId %>
-                                    </td>
-                                    <td class="px-6 py-4 text-slate-300">
-                                        <%= user.email %>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span
-                                            class="px-2 py-1 rounded text-xs <%= user.authProvider === 'google' ? 'bg-blue-500/20 text-blue-400' : (user.authProvider === 'github' ? 'bg-gray-500/20 text-gray-300' : 'bg-indigo-500/20 text-indigo-400') %>">
-                                            <%= user.authProvider %>
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-slate-400">
-                                        <%= new Date(user.createdAt).toLocaleTimeString() %>
-                                    </td>
-                                </tr>
-                                <% }) %>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-            <% } %>
 
-                <!-- All Users Section -->
-                <section>
-                    <h2 class="text-xl font-bold mb-4 text-white">All Registered Users</h2>
+        <!-- User Management Tab -->
+        <div id="section-users">
+            <!-- New Users Today Section -->
+            <% if(newUsersToday.length> 0) { %>
+                <section class="mb-10">
+                    <h2 class="text-xl font-bold mb-4 text-green-400">New Signups Today</h2>
                     <div class="overflow-x-auto rounded-xl border border-surface">
                         <table class="w-full text-left text-sm">
                             <thead class="bg-slate-800 text-slate-400 font-medium">
@@ -113,24 +118,15 @@
                                     <th class="px-6 py-4">Full Name</th>
                                     <th class="px-6 py-4">User ID</th>
                                     <th class="px-6 py-4">Email</th>
-                                    <th class="px-6 py-4">Status</th>
-                                    <th class="px-6 py-4">Joined Date</th>
+                                    <th class="px-6 py-4">Auth</th>
+                                    <th class="px-6 py-4">Time</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-700 bg-surface">
-                                <% users.forEach(user=> { %>
+                                <% newUsersToday.forEach(user=> { %>
                                     <tr class="hover:bg-slate-700/50 transition-colors">
-                                        <td class="px-6 py-4 font-medium flex items-center gap-3">
-                                            <% if(user.profileImage) { %>
-                                                <img src="<%= user.profileImage %>"
-                                                    class="w-8 h-8 rounded-full object-cover">
-                                                <% } else { %>
-                                                    <div
-                                                        class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs">
-                                                        <%= (user.fullName || user.userId).charAt(0).toUpperCase() %>
-                                                    </div>
-                                                    <% } %>
-                                                        <%= user.fullName || '-' %>
+                                        <td class="px-6 py-4 font-medium">
+                                            <%= user.fullName || '-' %>
                                         </td>
                                         <td class="px-6 py-4 text-slate-300">
                                             <%= user.userId %>
@@ -139,14 +135,13 @@
                                             <%= user.email %>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <% if(user.isVerified) { %>
-                                                <span class="text-green-400">Verified</span>
-                                                <% } else { %>
-                                                    <span class="text-yellow-400">Pending</span>
-                                                    <% } %>
+                                            <span
+                                                class="px-2 py-1 rounded text-xs <%= user.authProvider === 'google' ? 'bg-blue-500/20 text-blue-400' : (user.authProvider === 'github' ? 'bg-gray-500/20 text-gray-300' : 'bg-indigo-500/20 text-indigo-400') %>">
+                                                <%= user.authProvider %>
+                                            </span>
                                         </td>
                                         <td class="px-6 py-4 text-slate-400">
-                                            <%= new Date(user.createdAt).toLocaleDateString() %>
+                                            <%= new Date(user.createdAt).toLocaleTimeString() %>
                                         </td>
                                     </tr>
                                     <% }) %>
@@ -154,6 +149,1179 @@
                         </table>
                     </div>
                 </section>
+                <% } %>
+
+                    <!-- All Users Section -->
+                    <section>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-white">All Registered Users</h2>
+                            <button onclick="exportTableToCSV('all-users-table', 'registered_users.csv')"
+                                class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-300 transition-all">Export
+                                CSV</button>
+                        </div>
+                        <div class="overflow-x-auto rounded-xl border border-surface">
+                            <table class="w-full text-left text-sm" id="all-users-table">
+                                <thead class="bg-slate-800 text-slate-400 font-medium">
+                                    <tr>
+                                        <th class="px-6 py-4">Full Name</th>
+                                        <th class="px-6 py-4">User ID</th>
+                                        <th class="px-6 py-4">Email</th>
+                                        <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4">Joined Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-700 bg-surface">
+                                    <% users.forEach(user=> { %>
+                                        <tr class="hover:bg-slate-700/50 transition-colors">
+                                            <td class="px-6 py-4 font-medium flex items-center gap-3">
+                                                <% if(user.profileImage) { %>
+                                                    <img src="<%= user.profileImage %>"
+                                                        class="w-8 h-8 rounded-full object-cover">
+                                                    <% } else { %>
+                                                        <div
+                                                            class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs">
+                                                            <%= (user.fullName || user.userId).charAt(0).toUpperCase()
+                                                                %>
+                                                        </div>
+                                                        <% } %>
+                                                            <%= user.fullName || '-' %>
+                                            </td>
+                                            <td class="px-6 py-4 text-slate-300">
+                                                <%= user.userId %>
+                                            </td>
+                                            <td class="px-6 py-4 text-slate-300">
+                                                <%= user.email %>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <% if(user.isVerified) { %>
+                                                    <span class="text-green-400">Verified</span>
+                                                    <% } else { %>
+                                                        <span class="text-yellow-400">Pending</span>
+                                                        <% } %>
+                                            </td>
+                                            <td class="px-6 py-4 text-slate-400">
+                                                <%= new Date(user.createdAt).toLocaleDateString() %>
+                                            </td>
+                                            <td class="px-6 py-4 text-right">
+                                                <% if(user.userId !=='admin12' ) { %>
+                                                    <button onclick="deleteUserAccount('<%= user.userId %>')"
+                                                        class="text-slate-500 hover:text-red-500 transition-colors p-1">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                            viewBox="0 0 24 24">
+                                                            <path
+                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                                stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2" />
+                                                        </svg>
+                                                    </button>
+                                                    <% } %>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="section-analytics" class="hidden">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div class="flex gap-2 p-1 bg-slate-800 rounded-lg">
+                    <button onclick="switchAnalyticsSubTab('company')" id="subtab-company"
+                        class="px-4 py-2 rounded-md bg-orange-600 text-white font-medium text-sm transition-all">By
+                        Company</button>
+                    <button onclick="switchAnalyticsSubTab('student')" id="subtab-student"
+                        class="px-4 py-2 rounded-md text-slate-400 font-medium text-sm hover:text-white transition-all">By
+                        Student</button>
+                    <button onclick="switchAnalyticsSubTab('course')" id="subtab-course"
+                        class="px-4 py-2 rounded-md text-slate-400 font-medium text-sm hover:text-white transition-all">By
+                        Course</button>
+                </div>
+                <div id="company-filter-container" class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Apply Type:</span>
+                    <select id="company-type-filter" onchange="loadCompanyStats()"
+                        class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 outline-none focus:border-orange-500 transition-all">
+                        <option value="all">All Applications</option>
+                        <option value="In Campus">In-Campus Only</option>
+                        <option value="Off Campus">Off-Campus Only</option>
+                    </select>
+                </div>
+                <!-- Selection Actions -->
+                <div id="company-selection-actions" class="hidden flex items-center gap-3">
+                    <button onclick="toggleSelectAllCompanies(true)"
+                        class="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase">Select All</button>
+                    <button onclick="toggleSelectAllCompanies(false)"
+                        class="text-xs font-bold text-slate-500 hover:text-slate-400 uppercase">Clear</button>
+                </div>
+
+                <button onclick="exportCurrentAnalytics('csv')"
+                    class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                    </svg>
+                    Export CSV
+                </button>
+                <button onclick="exportCurrentAnalytics('pdf')"
+                    class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-all text-red-400 border border-red-400/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                            stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                    </svg>
+                    Export PDF
+                </button>
+            </div>
+            <!-- Moved closing div to include analytics content containers -->
+
+            <!-- Analytics Content Containers -->
+            <div id="analytics-company-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <p class="text-slate-400">Loading company stats...</p>
+            </div>
+
+            <div id="analytics-student-content" class="hidden">
+                <!-- Student Selective Action -->
+                <div id="student-selection-actions" class="hidden flex items-center gap-3 mb-4">
+                    <button onclick="toggleSelectAllStudents(true)"
+                        class="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase">Select All</button>
+                    <button onclick="toggleSelectAllStudents(false)"
+                        class="text-xs font-bold text-slate-500 hover:text-slate-400 uppercase">Clear</button>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-surface">
+                    <table class="w-full text-left" id="student-stats-table">
+                        <thead>
+                            <tr
+                                class="bg-slate-800/80 text-slate-400 text-[10px] uppercase font-bold tracking-widest border-b border-slate-700/50">
+                                <th class="px-6 py-5 w-10">
+                                    <input type="checkbox" id="select-all-students"
+                                        onchange="toggleSelectAllStudents(this.checked)"
+                                        class="w-5 h-5 rounded-md border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50 transition-colors">
+                                </th>
+                                <th class="px-6 py-5">Student Information</th>
+                                <th class="px-6 py-5">Course Detail</th>
+                                <th class="px-6 py-5 text-center">In-Campus</th>
+                                <th class="px-6 py-5 text-center">Off-Campus</th>
+                                <th class="px-6 py-5 text-center">Total Apps</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-stats-body" class="divide-y divide-slate-700 bg-surface">
+                            <!-- Loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="analytics-course-content" class="hidden">
+                <!-- Course Selective Action -->
+                <div id="course-selection-actions" class="hidden flex items-center gap-3 mb-4">
+                    <button onclick="toggleSelectAllCourses(true)"
+                        class="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase">Select All</button>
+                    <button onclick="toggleSelectAllCourses(false)"
+                        class="text-xs font-bold text-slate-500 hover:text-slate-400 uppercase">Clear</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="course-stats-grid">
+                    <!-- Loaded via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="section-config" class="hidden">
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Companies Config -->
+                <div
+                    class="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden group">
+                    <div
+                        class="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-orange-500/10 transition-all">
+                    </div>
+
+                    <div class="flex items-center gap-3 mb-6">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-600/20">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                                </path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">In-Campus Companies</h3>
+                            <p class="text-slate-500 text-xs font-medium">Manage master company list</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mb-8 bg-slate-900/50 p-2 rounded-2xl border border-slate-700/30">
+                        <input type="text" id="new-company-name" placeholder="Enter company name..."
+                            class="flex-1 px-4 py-3 bg-transparent border-none outline-none text-white text-sm placeholder:text-slate-600 focus:ring-0">
+                        <button onclick="addInCampusCompany()"
+                            class="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-600/20 active:scale-95">Add</button>
+                    </div>
+
+                    <div id="in-campus-list" class="space-y-3 max-h-[400px] overflow-auto pr-2 custom-scrollbar">
+                        <!-- List loaded via JS -->
+                    </div>
+                </div>
+
+                <!-- Course Config -->
+                <div
+                    class="bg-slate-800/40 p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden group">
+                    <div
+                        class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-500/10 transition-all">
+                    </div>
+
+                    <div class="flex items-center gap-3 mb-6">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 14l9-5-9-5-9 5 9 5z"></path>
+                                <path
+                                    d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Dynamic Courses</h3>
+                            <p class="text-slate-500 text-xs font-medium">Manage student course options</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mb-8 bg-slate-900/50 p-2 rounded-2xl border border-slate-700/30">
+                        <input type="text" id="new-course-name" placeholder="e.g. B.Tech Computer Science..."
+                            class="flex-1 px-4 py-3 bg-transparent border-none outline-none text-white text-sm placeholder:text-slate-600 focus:ring-0">
+                        <button onclick="addCourse()"
+                            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95">Add</button>
+                    </div>
+
+                    <div id="courses-list" class="space-y-3 max-h-[400px] overflow-auto pr-2 custom-scrollbar">
+                        <!-- List loaded via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 py-8 border-t border-slate-800/10 text-center">
+            <p
+                class="text-slate-500 text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity">
+                &copy; 2026 JobTracker Node • Placement Management System • All Rights Reserved • Designed By: Akshay
+                Jain
+            </p>
+        </footer>
+    </div>
+
+    <!-- Student Detail Modal -->
+    <div id="adminModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAdminModal()"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl p-6">
+            <div class="bg-surface rounded-2xl p-8 border border-surface max-h-[90vh] overflow-auto relative">
+                <button onclick="closeAdminModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+                <div id="modal-content">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global data storage for current active analytics
+        let currentAnalyticsData = [];
+        let currentAnalyticsType = 'company';
+
+        window.onload = () => {
+            loadSummaryStats();
+        };
+
+        async function loadSummaryStats() {
+            try {
+                const res = await fetch('/admin/api/stats/summary');
+                const stats = await res.json();
+                document.getElementById('total-companies-count').innerText = stats.totalCompanies;
+
+                const courseList = document.getElementById('course-summary-list');
+                if (stats.courseStats && stats.courseStats.length > 0) {
+                    courseList.innerHTML = stats.courseStats.map(c => `
+                        <div class="flex justify-between items-center bg-slate-800/50 px-3 py-2 rounded-lg">
+                            <span class="text-slate-300 text-xs font-medium truncate mr-2">${c.course}</span>
+                            <span class="text-indigo-400 font-bold text-sm">${c.count}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    courseList.innerHTML = '<p class="text-slate-500 text-xs">No data available</p>';
+                }
+            } catch (e) {
+                console.error('Summary stats failed', e);
+                document.getElementById('course-summary-list').innerHTML = '<p class="text-red-400 text-xs">Error loading</p>';
+            }
+        }
+
+        function switchAdminTab(tab) {
+            ['users', 'analytics', 'config'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('border-orange-500', 'text-orange-500');
+                document.getElementById(`tab-${t}`).classList.add('border-transparent', 'text-slate-400');
+            });
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('border-orange-500', 'text-orange-500');
+            document.getElementById(`tab-${tab}`).classList.remove('border-transparent', 'text-slate-400');
+
+            if (tab === 'analytics') switchAnalyticsSubTab('company');
+            if (tab === 'config') {
+                loadInCampusCompanies();
+                loadCourses();
+            }
+        }
+
+        function switchAnalyticsSubTab(type) {
+            currentAnalyticsType = type;
+            ['company', 'student', 'course'].forEach(t => {
+                document.getElementById(`analytics-${t}-content`).classList.add('hidden');
+                document.getElementById(`subtab-${t}`).classList.remove('bg-orange-600', 'text-white');
+                document.getElementById(`subtab-${t}`).classList.add('text-slate-400');
+            });
+            document.getElementById(`analytics-${type}-content`).classList.remove('hidden');
+            document.getElementById(`subtab-${type}`).classList.add('bg-orange-600', 'text-white');
+            document.getElementById(`subtab-${type}`).classList.remove('text-slate-400');
+
+            // Show filter only for company tab
+            const filterContainer = document.getElementById('company-filter-container');
+            if (type === 'company') filterContainer.classList.remove('hidden');
+            else filterContainer.classList.add('hidden');
+
+            if (type === 'company') loadCompanyStats();
+            if (type === 'student') loadStudentStats();
+            if (type === 'course') loadCourseStats();
+        }
+
+        async function loadCompanyStats() {
+            const container = document.getElementById('analytics-company-content');
+            const typeFilter = document.getElementById('company-type-filter').value;
+
+            container.innerHTML = '<p class="text-slate-400">Loading statistics...</p>';
+            try {
+                const response = await fetch(`/admin/api/stats/companies?type=${encodeURIComponent(typeFilter)}`);
+                const stats = await response.json();
+                currentAnalyticsData = stats;
+
+                if (stats.length === 0) {
+                    container.innerHTML = '<p class="text-slate-400">No application data yet.</p>';
+                    return;
+                }
+
+                container.innerHTML = stats.map(s => `
+                    <div class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 hover:border-orange-500/50 hover:bg-slate-800/60 transition-all cursor-pointer group relative overflow-hidden" onclick="viewCompanyStudents('${s.company}')">
+                        <div class="absolute top-4 right-4 z-20" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="company-checkbox w-5 h-5 rounded-md border-slate-600 bg-slate-900 text-orange-500 focus:ring-orange-500/50 transition-colors" value="${s.company}" onchange="updateSelectionUI()">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 pr-8">
+                            <div>
+                                <h3 class="text-xl font-bold text-white group-hover:text-orange-400 transition-colors">${s.company}</h3>
+                                <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">${s.applications} Applications</p>
+                            </div>
+                            <span class="bg-orange-500/10 text-orange-400 px-3 py-1 rounded-lg text-xs font-bold border border-orange-500/20">
+                                ${s.count} ${s.count === 1 ? 'Student' : 'Students'}
+                            </span>
+                        </div>
+                        <div class="mt-6 flex items-center justify-between">
+                            <div class="flex items-center gap-1 text-orange-400 text-sm font-semibold group-hover:gap-2 transition-all">
+                                <span>View Detail</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-lg shadow-orange-500/10">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                container.innerHTML = '<p class="text-red-400">Failed to load statistics.</p>';
+            }
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            const checkboxes = document.querySelectorAll('.company-checkbox');
+            const selected = Array.from(checkboxes).filter(cb => cb.checked);
+            const actions = document.getElementById('company-selection-actions');
+
+            if (selected.length > 0 && currentAnalyticsType === 'company') {
+                actions.classList.remove('hidden');
+            } else {
+                actions.classList.add('hidden');
+            }
+        }
+
+        function toggleSelectAllCompanies(checked) {
+            document.querySelectorAll('.company-checkbox').forEach(cb => cb.checked = checked);
+            updateSelectionUI();
+        }
+
+
+        function generateSelectivePDF(selectedCompanies, detailedData) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const date = new Date().toLocaleDateString();
+
+            doc.setFontSize(20);
+            doc.setTextColor(40);
+            doc.text("Company Placement Report", 14, 22);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Generated on: ${date}`, 14, 28);
+            doc.text(`Filter: ${document.getElementById('company-type-filter').value}`, 14, 33);
+
+            // Table 1: Summary Output
+            doc.setFontSize(14);
+            doc.setTextColor(40);
+            doc.text("Placement Summary", 14, 45);
+
+            const summaryBody = selectedCompanies.map(name => {
+                const students = [...new Set(detailedData.filter(j => j.company === name).map(j => j.userId))];
+                return [name, students.length];
+            });
+
+            doc.autoTable({
+                startY: 50,
+                head: [["Company Name", "Number of Students"]],
+                body: summaryBody,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] },
+                margin: { top: 50 }
+            });
+
+            // Table 2+: Detailed Sections per Company
+            let currentY = doc.lastAutoTable.finalY + 20;
+
+            selectedCompanies.forEach((company, index) => {
+                const companyJobs = detailedData.filter(j => j.company === company);
+
+                // Add page if needed
+                if (currentY > 240) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                doc.setFontSize(14);
+                doc.text(`Details: ${company}`, 14, currentY);
+
+                companyJobs.forEach(j => {
+                    if (currentY > 240) {
+                        doc.addPage();
+                        currentY = 20;
+                    }
+
+                    doc.setDrawColor(220);
+                    doc.setFillColor(252, 253, 255);
+                    doc.rect(14, currentY, 182, 40, 'FD');
+
+                    doc.setTextColor(40);
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${j.studentName} (${j.userId})`, 18, currentY + 7);
+
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(80);
+                    doc.text(`Position: ${j.position} | Status: ${j.status} | Date: ${j.appliedDate ? new Date(j.appliedDate).toLocaleDateString() : 'N/A'}`, 18, currentY + 13);
+
+                    const notes = j.notes || "No notes.";
+                    const splitNotes = doc.splitTextToSize(`Notes: ${notes}`, 170);
+                    doc.text(splitNotes, 18, currentY + 20);
+
+                    const rounds = j.rounds ? (typeof j.rounds === 'string' ? JSON.parse(j.rounds) : j.rounds) : [];
+                    if (rounds.length > 0) {
+                        const roundStr = rounds.map(r => `${r.round} (${r.datetime || 'N/A'})`).join(", ");
+                        const splitRounds = doc.splitTextToSize(`Rounds: ${roundStr}`, 170);
+                        doc.text(splitRounds, 18, currentY + 30);
+                    }
+
+                    currentY += 45;
+                });
+            });
+
+            doc.save(`Selective_Placement_Report_${new Date().getTime()}.pdf`);
+        }
+
+        async function loadStudentStats() {
+            const body = document.getElementById('student-stats-body');
+            body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-slate-400">Loading student stats...</td></tr>';
+            try {
+                const response = await fetch('/admin/api/stats/students');
+                const stats = await response.json();
+                currentAnalyticsData = stats;
+
+                if (stats.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-slate-400">No student data.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = stats.map(s => `
+                    <tr class="hover:bg-slate-700/50 transition-colors cursor-pointer" onclick="viewAllStudentDetails('${s.userId}')">
+                        <td class="px-6 py-4" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="student-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 text-indigo-600 focus:ring-indigo-500" value="${s.userId}" onchange="updateStudentSelectionUI()">
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <div class="font-medium text-white">${s.fullName || '-'}</div>
+                                ${s.isVerified ? `
+                                    <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                ` : ''}
+                            </div>
+                            <div class="text-[10px] text-slate-500 uppercase font-bold tracking-tight">${s.userId}</div>
+                        </td>
+                        <td class="px-6 py-4 text-slate-300">
+                             <div class="text-sm">${s.course}</div>
+                             <div class="text-[10px] text-slate-500">${s.email}</div>
+                        </td>
+                        <td class="px-6 py-4 text-center text-orange-400 font-medium">${s.inCampus}</td>
+                        <td class="px-6 py-4 text-center text-blue-400 font-medium">${s.offCampus}</td>
+                        <td class="px-6 py-4 text-center font-bold text-white">${s.total}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                body.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-400">Failed to load stats.</td></tr>';
+            }
+            updateStudentSelectionUI();
+        }
+
+        function updateStudentSelectionUI() {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            const selected = Array.from(checkboxes).filter(cb => cb.checked);
+            const container = document.getElementById('student-selection-actions');
+
+            if (selected.length > 0 && currentAnalyticsType === 'student') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function toggleSelectAllStudents(checked) {
+            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checked);
+            updateStudentSelectionUI();
+        }
+
+
+        function generateStudentSelectivePDF(users, allJobs) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const date = new Date().toLocaleDateString();
+
+            doc.setFontSize(22);
+            doc.setTextColor(40);
+            doc.text("Student Placement Analytics", 14, 25);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Generated: ${date}`, 14, 32);
+
+            // Summary Table
+            doc.setFontSize(14);
+            doc.setTextColor(40);
+            doc.text("Selected Students Summary", 14, 45);
+
+            const summaryBody = users.map(u => {
+                const count = allJobs.filter(j => j.userId === u.userId).length;
+                return [u.fullName || '-', u.userId, u.course || '-', count];
+            });
+
+            doc.autoTable({
+                startY: 50,
+                head: [["Name", "User ID", "Course", "Total Applications"]],
+                body: summaryBody,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] }
+            });
+
+            // Detailed Cards per Student
+            users.forEach((user, index) => {
+                doc.addPage();
+                doc.setFontSize(18);
+                doc.setTextColor(40);
+                doc.text(`Student Portfolio: ${user.fullName || user.userId}`, 14, 25);
+
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text(`Email: ${user.email} | ID: ${user.userId}`, 14, 32);
+                doc.text(`Course: ${user.course || 'N/A'}`, 14, 37);
+
+                const studentJobs = allJobs.filter(j => j.userId === user.userId);
+
+                if (studentJobs.length === 0) {
+                    doc.text("No job applications found.", 14, 50);
+                    return;
+                }
+
+                let currentY = 50;
+
+                studentJobs.forEach(j => {
+                    if (currentY > 240) {
+                        doc.addPage();
+                        currentY = 25;
+                    }
+
+                    // Card Layout in PDF
+                    doc.setDrawColor(200);
+                    doc.setFillColor(248, 250, 252); // Light bg
+                    doc.rect(14, currentY, 182, 45, 'FD');
+
+                    doc.setTextColor(40);
+                    doc.setFontSize(12);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${j.company} - ${j.position}`, 18, currentY + 7);
+
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(100);
+                    doc.text(`Status: ${j.status} | Type: ${j.applicationType} | Date: ${j.appliedDate ? new Date(j.appliedDate).toLocaleDateString() : 'N/A'}`, 18, currentY + 13);
+
+                    // Notes & Rounds
+                    const notes = j.notes || "No notes.";
+                    const splitNotes = doc.splitTextToSize(`Notes: ${notes}`, 170);
+                    doc.text(splitNotes, 18, currentY + 20);
+
+                    const rounds = j.rounds ? JSON.parse(j.rounds) : [];
+                    if (rounds.length > 0) {
+                        const roundStr = rounds.map(r => `${r.round} (${r.datetime || 'N/A'})`).join(", ");
+                        const splitRounds = doc.splitTextToSize(`Rounds: ${roundStr}`, 170);
+                        doc.text(splitRounds, 18, currentY + 32);
+                    }
+
+                    currentY += 50;
+                });
+            });
+
+            doc.save(`Student_Analytics_${new Date().getTime()}.pdf`);
+        }
+
+        async function loadCourseStats() {
+            const container = document.getElementById('course-stats-grid');
+            container.innerHTML = '<p class="text-slate-400">Loading...</p>';
+            try {
+                const res = await fetch('/admin/api/stats/courses');
+                const stats = await res.json();
+                currentAnalyticsData = stats;
+
+                container.innerHTML = stats.map(s => `
+                    <div class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all cursor-pointer group relative overflow-hidden" onclick="viewCourseStudents('${s.course}')">
+                        <div class="absolute top-4 right-4 z-20" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="course-checkbox w-5 h-5 rounded-md border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500/50 transition-colors" value="${s.course}" onchange="updateCourseSelectionUI()">
+                        </div>
+                        <div class="flex justify-between items-start mb-4 pr-8">
+                            <div>
+                                <h3 class="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">${s.course}</h3>
+                                <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Enrollment Detail</p>
+                            </div>
+                            <span class="bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-lg text-xs font-bold border border-indigo-500/20">
+                                ${s.count} ${s.count === 1 ? 'Student' : 'Students'}
+                            </span>
+                        </div>
+                        <div class="mt-6 flex items-center justify-between">
+                            <div class="flex items-center gap-1 text-indigo-400 text-sm font-semibold group-hover:gap-2 transition-all">
+                                <span>View Students</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-lg shadow-indigo-500/10">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { container.innerHTML = '<p class="text-red-400">Failed.</p>'; }
+            updateCourseSelectionUI();
+        }
+
+        function updateCourseSelectionUI() {
+            const checkboxes = document.querySelectorAll('.course-checkbox');
+            const selected = Array.from(checkboxes).filter(cb => cb.checked);
+            const container = document.getElementById('course-selection-actions');
+
+            if (selected.length > 0 && currentAnalyticsType === 'course') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function toggleSelectAllCourses(checked) {
+            document.querySelectorAll('.course-checkbox').forEach(cb => cb.checked = checked);
+            updateCourseSelectionUI();
+        }
+
+        async function viewCourseStudents(courseName) {
+            const modal = document.getElementById('adminModal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '<p class="text-slate-400">Loading students...</p>';
+            modal.classList.remove('hidden');
+
+            try {
+                // We use the student stats API and filter by course client-side for simplicity, 
+                // or we could add a backend route. Let's use the student stats API.
+                const response = await fetch('/admin/api/stats/students');
+                const allStudents = await response.json();
+                const students = allStudents.filter(s => s.course === courseName);
+
+                content.innerHTML = `
+                    <h2 class="text-2xl font-bold mb-6 text-white">Students in ${courseName}</h2>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        ${students.map(s => `
+                            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-700 transition-colors" onclick="viewAllStudentDetails('${s.userId}')">
+                                <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-lg font-bold">
+                                    ${(s.fullName || s.userId).charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-white">${s.fullName || '-'}</h4>
+                                    <p class="text-slate-400 text-sm">${s.userId} • ${s.email}</p>
+                                    <div class="flex gap-2 mt-1">
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Total: ${s.total}</span>
+                                        ${s.isVerified ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">Verified</span>' : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Pending</span>'}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) { content.innerHTML = '<p class="text-red-400">Error loading course details.</p>'; }
+        }
+
+        async function exportCurrentAnalytics(format) {
+            const filename = `analytics_${currentAnalyticsType}_${new Date().toISOString().split('T')[0]}`;
+
+            // Check for selections
+            let selectedItems = [];
+            if (currentAnalyticsType === 'company') {
+                selectedItems = Array.from(document.querySelectorAll('.company-checkbox:checked')).map(cb => cb.value);
+            } else if (currentAnalyticsType === 'student') {
+                selectedItems = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+            } else if (currentAnalyticsType === 'course') {
+                selectedItems = Array.from(document.querySelectorAll('.course-checkbox:checked')).map(cb => cb.value);
+            }
+
+            // Show loading state
+            if (window.showToast) showToast('Preparing export data...', 'info');
+
+            try {
+                if (currentAnalyticsType === 'student' || currentAnalyticsType === 'course') {
+                    // Fetch detailed data for students
+                    let userIds = [];
+                    if (currentAnalyticsType === 'student') {
+                        userIds = selectedItems.length > 0 ? selectedItems : currentAnalyticsData.map(d => d.userId).filter(id => id);
+                    } else {
+                        // Course tab: fetch all student stats and filter by selected courses
+                        const statsRes = await fetch('/admin/api/stats/students');
+                        const allStudentStats = await statsRes.json();
+                        const targetCourses = selectedItems.length > 0 ? selectedItems : currentAnalyticsData.map(d => d.course);
+                        userIds = allStudentStats.filter(s => targetCourses.includes(s.course)).map(s => s.userId);
+                    }
+
+                    if (userIds.length === 0) {
+                        if (window.showToast) showToast('No students found for export', 'warning');
+                        return;
+                    }
+
+                    const res = await fetch('/admin/api/stats/students/details', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userIds })
+                    });
+                    const { users, jobs } = await res.json();
+
+                    if (format === 'csv') {
+                        let csvContent = "data:text/csv;charset=utf-8,";
+                        csvContent += "Student ID,Name,Email,Mobile,Verified,Course,Company,Position,Status,Applied Date,Rounds,Notes\n";
+
+                        users.forEach(u => {
+                            const uJobs = jobs.filter(j => j.userId === u.userId);
+                            const rowBase = `"${u.userId}","${u.fullName || ''}","${u.email}","${u.phone || 'N/A'}","${u.isVerified ? 'Yes' : 'No'}","${u.course || ''}"`;
+                            if (uJobs.length === 0) {
+                                csvContent += `${rowBase},"","","","","",""\n`;
+                            } else {
+                                uJobs.forEach(j => {
+                                    const rounds = j.rounds ? (typeof j.rounds === 'string' ? JSON.parse(j.rounds) : j.rounds).map(r => `${r.round} (${r.datetime || r.date})`).join(' | ') : '';
+                                    csvContent += `${rowBase},"${j.company}","${j.position}","${j.status}","${j.appliedDate ? new Date(j.appliedDate).toLocaleDateString() : 'N/A'}","${rounds}","${(j.notes || '').replace(/"/g, '""')}"\n`;
+                                });
+                            }
+                        });
+                        downloadFile(csvContent, `${filename}.csv`);
+                    } else {
+                        generateStudentSelectivePDF(users, jobs);
+                    }
+                } else if (currentAnalyticsType === 'company') {
+                    const companies = selectedItems.length > 0 ? selectedItems : currentAnalyticsData.map(d => d.company);
+                    const res = await fetch('/admin/api/stats/companies/details', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ companies, type: document.getElementById('company-type-filter').value })
+                    });
+                    const detailedJobs = await res.json();
+
+                    if (format === 'csv') {
+                        let csvContent = "data:text/csv;charset=utf-8,";
+                        csvContent += "Company,Student Name,User ID,Email,Position,Status,Applied Date,Rounds,Notes\n";
+                        detailedJobs.forEach(j => {
+                            const rounds = j.rounds ? (typeof j.rounds === 'string' ? JSON.parse(j.rounds) : j.rounds).map(r => `${r.round} (${r.datetime || r.date})`).join(' | ') : '';
+                            csvContent += `"${j.company}","${j.studentName}","${j.userId}","${j.email}","${j.position}","${j.status}","${j.appliedDate ? new Date(j.appliedDate).toLocaleDateString() : 'N/A'}","${rounds}","${(j.notes || '').replace(/"/g, '""')}"\n`;
+                        });
+                        downloadFile(csvContent, `${filename}.csv`);
+                    } else {
+                        generateSelectivePDF(companies, detailedJobs);
+                    }
+                }
+            } catch (err) {
+                console.error('Export failed:', err);
+                if (window.showToast) showToast('Export failed: ' + err.message, 'error');
+            }
+        }
+
+        function downloadFile(content, filename) {
+            const encodedUri = encodeURI(content);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportTableToCSV(tableId, filename) {
+            const table = document.getElementById(tableId);
+            let csv = [];
+            for (let i = 0; i < table.rows.length; i++) {
+                let row = [], cols = table.rows[i].querySelectorAll("td, th");
+                for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText.trim() + '"');
+                csv.push(row.join(","));
+            }
+            const csvContent = "data:text/csv;charset=utf-8," + csv.join("\n");
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        // Student Detail Modals
+        async function viewAllStudentDetails(userId) {
+            const modal = document.getElementById('adminModal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '<p class="text-slate-400">Loading details...</p>';
+            modal.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/admin/api/stats/student/${userId}`);
+                const { user, jobs } = await response.json();
+
+                content.innerHTML = `
+                    <div class="flex items-center justify-between mb-8 pb-6 border-b border-surface">
+                        <div class="flex items-center gap-6 text-white">
+                            <div class="w-24 h-24 rounded-2xl bg-indigo-600 flex items-center justify-center text-3xl font-bold relative group">
+                                ${user.profileImage ? `<img src="${user.profileImage}" class="w-full h-full rounded-2xl object-cover">` : (user.fullName || user.userId).charAt(0).toUpperCase()}
+                                ${user.isVerified ? `
+                                    <div class="absolute -top-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-lg" title="Verified User">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div>
+                                <h2 class="text-3xl font-bold">${user.fullName || '-'}</h2>
+                                <p class="text-slate-400">${user.email} • ${user.phone || 'No phone'}</p>
+                                <div class="flex gap-2 mt-2">
+                                    <span class="bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded text-xs font-bold uppercase tracking-tight">ID: ${user.userId}</span>
+                                    <span class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-medium">${user.course || 'No Course'}</span>
+                                    <span class="${user.isVerified ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-500'} px-2 py-1 rounded text-xs font-bold uppercase tracking-tight">
+                                        ${user.isVerified ? 'Verified' : 'Pending Verification'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="deleteUserAccount('${user.userId}')" class="px-4 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-lg transition-all text-sm font-bold flex items-center gap-2">
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                             Delete Profile
+                        </button>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold mb-4 text-white">All Applications (${jobs.length})</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${jobs.map(j => `
+                            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-all">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <h4 class="text-lg font-bold text-white">${j.company}</h4>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${j.applicationType === 'In Campus' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}">${j.applicationType}</span>
+                                        </div>
+                                        <p class="text-indigo-400 text-sm font-medium">${j.position}</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-slate-700 text-slate-300 rounded-full text-xs font-semibold uppercase tracking-wider">${j.status}</span>
+                                </div>
+                                
+                                <div class="space-y-3 pt-3 border-t border-slate-700/50">
+                                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                                        <span>Applied: ${j.appliedDate ? new Date(j.appliedDate).toLocaleDateString() : 'N/A'}</span>
+                                    </div>
+                                    
+                                    ${j.rounds && (typeof j.rounds === 'string' ? JSON.parse(j.rounds) : j.rounds).length > 0 ? `
+                                        <div class="bg-slate-900/50 rounded-lg p-3">
+                                            <p class="text-[10px] uppercase font-bold text-slate-500 mb-2">Interview Rounds</p>
+                                            <div class="space-y-2">
+                                                ${(typeof j.rounds === 'string' ? JSON.parse(j.rounds) : j.rounds).map(r => `
+                                                    <div class="flex justify-between text-xs">
+                                                        <span class="text-slate-300">• ${r.round}</span>
+                                                        <span class="text-indigo-400">${r.datetime || r.date || 'N/A'}</span>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="text-sm">
+                                        <p class="text-slate-500 text-xs font-bold uppercase mb-1">Notes</p>
+                                        <p class="text-slate-300 italic leading-relaxed">"${j.notes || 'No notes provided'}"</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) { console.error(err); content.innerHTML = '<p class="text-red-400">Error loading details.</p>'; }
+        }
+
+        async function deleteUserAccount(userId) {
+            if (!confirm(`Are you absolutely sure you want to delete user ${userId}? This will also delete all their applications and notifications. This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/admin/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert('User deleted successfully');
+                    location.reload(); // Simplest way to refresh all stats
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (e) {
+                alert('Failed to delete user');
+            }
+        }
+
+        // Configuration Management
+        async function loadInCampusCompanies() {
+            const list = document.getElementById('in-campus-list');
+            try {
+                const response = await fetch('/admin/api/config/companies');
+                const companies = await response.json();
+                list.innerHTML = companies.map(c => `
+                    <div class="flex justify-between items-center p-4 bg-slate-900/40 rounded-xl border border-slate-700/30 hover:border-orange-500/30 transition-all group">
+                        <span class="font-bold text-slate-200 group-hover:text-white transition-colors">${c}</span>
+                        <button onclick="deleteInCampusCompany('${c}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-red-500/10 hover:text-red-500 transition-all active:scale-90">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } catch (e) { }
+        }
+
+        async function addInCampusCompany() {
+            const input = document.getElementById('new-company-name');
+            const company = input.value.trim();
+            if (!company) return;
+            try {
+                const res = await fetch('/admin/api/config/companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company })
+                });
+                if (!res.ok) throw new Error('Failed to add company');
+                input.value = '';
+                await loadInCampusCompanies();
+            } catch (e) {
+                alert('Error adding company: ' + e.message);
+            }
+        }
+
+        async function deleteInCampusCompany(name) {
+            if (!confirm(`Remove ${name} from In-Campus list?`)) return;
+            try {
+                const res = await fetch('/admin/api/config/companies');
+                const list = await res.json();
+                const newList = list.filter(c => c !== name);
+                await fetch('/admin/api/config/companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company: 'DUMMY', replaceAll: true, newList })
+                });
+                await loadInCampusCompanies();
+            } catch (e) {
+                alert('Error deleting: ' + e.message);
+            }
+        }
+
+        async function loadCourses() {
+            const list = document.getElementById('courses-list');
+            try {
+                const res = await fetch('/admin/api/config/courses');
+                const courses = await res.json();
+                list.innerHTML = courses.map(c => `
+                    <div class="flex justify-between items-center p-4 bg-slate-900/40 rounded-xl border border-slate-700/30 hover:border-indigo-500/30 transition-all group">
+                        <span class="font-bold text-slate-200 group-hover:text-white transition-colors">${c}</span>
+                        <button onclick="deleteCourse('${c}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-red-500/10 hover:text-red-500 transition-all active:scale-90">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } catch (e) { }
+        }
+
+        async function addCourse() {
+            const input = document.getElementById('new-course-name');
+            const name = input.value.trim();
+            if (!name) return;
+            try {
+                const res = await fetch('/admin/api/config/courses');
+                const list = await res.json();
+                if (!list.includes(name)) {
+                    list.push(name);
+                    await saveCourses(list);
+                    input.value = '';
+                    loadCourses();
+                }
+            } catch (e) { }
+        }
+
+        async function deleteCourse(name) {
+            try {
+                const res = await fetch('/admin/api/config/courses');
+                const list = await res.json();
+                const newList = list.filter(c => c !== name);
+                await saveCourses(newList);
+                loadCourses();
+            } catch (e) { }
+        }
+
+        async function saveCourses(courses) {
+            await fetch('/admin/api/config/courses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courses })
+            });
+        }
+
+        async function viewCompanyStudents(company) {
+            const modal = document.getElementById('adminModal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '<p class="text-slate-400">Loading students...</p>';
+            modal.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/admin/api/stats/company/${encodeURIComponent(company)}`);
+                const students = await response.json();
+
+                content.innerHTML = `
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-2xl font-bold text-white">Students Applied to ${company}</h2>
+                        <span class="bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/20">${students.length} Total</span>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        ${students.map(s => `
+                            <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 cursor-pointer hover:bg-slate-700 transition-colors group" onclick="viewSpecificStudentDetails('${s.userId}', '${company}')">
+                                <div class="w-14 h-14 rounded-full bg-slate-700 border-2 border-orange-500/20 flex-shrink-0 flex items-center justify-center text-lg font-bold group-hover:border-orange-500 transition-all relative">
+                                    ${s.profileImage ? `<img src="${s.profileImage}" class="w-full h-full rounded-full object-cover">` : (s.fullName || s.userId).charAt(0).toUpperCase()}
+                                    ${s.isVerified ? `
+                                        <div class="absolute -bottom-1 -right-1 bg-green-500 text-white p-0.5 rounded-full shadow-lg">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-bold text-white truncate">${s.fullName || '-'}</h4>
+                                    <p class="text-slate-400 text-xs truncate">ID: ${s.userId}</p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-[10px] uppercase font-bold text-orange-400/80 bg-orange-500/5 px-1.5 py-0.5 rounded">Candidate</span>
+                                    </div>
+                                </div>
+                                <svg class="w-5 h-5 text-slate-600 group-hover:text-orange-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) { content.innerHTML = '<p class="text-red-400">Error.</p>'; }
+        }
+
+        async function viewSpecificStudentDetails(userId, company) {
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '<p class="text-slate-400">Loading student details...</p>';
+            try {
+                const response = await fetch(`/admin/api/stats/student/${userId}?company=${encodeURIComponent(company)}`);
+                const { user, jobs } = await response.json();
+                content.innerHTML = `
+                    <div class="flex items-center gap-6 mb-8 pb-6 border-b border-surface text-white">
+                        <div class="w-24 h-24 rounded-2xl bg-orange-600 flex items-center justify-center text-3xl font-bold relative group">
+                            ${user.profileImage ? `<img src="${user.profileImage}" class="w-full h-full rounded-2xl object-cover">` : (user.fullName || user.userId).charAt(0).toUpperCase()}
+                            ${user.isVerified ? `
+                                <div class="absolute -top-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-lg" title="Verified User">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div>
+                             <h2 class="text-3xl font-bold">${user.fullName || '-'}</h2>
+                             <p class="text-slate-400">${user.email} • ${user.phone || 'No phone'}</p>
+                             <div class="flex gap-2 mt-2">
+                                <span class="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs font-bold uppercase tracking-tight">ID: ${user.userId}</span>
+                                <span class="${user.isVerified ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-500'} px-2 py-1 rounded text-xs font-bold uppercase tracking-tight">
+                                    ${user.isVerified ? 'Verified' : 'Pending Verification'}
+                                </span>
+                             </div>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mb-4 text-white">Applications for ${company}</h3>
+                    <div class="space-y-4">
+                        ${jobs.map(j => `
+                            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h4 class="text-lg font-bold text-white">${j.position}</h4>
+                                        <p class="text-slate-400 text-sm mt-2">${j.notes || 'No notes'}</p>
+                                    </div>
+                                    <span class="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold uppercase">${j.status}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button onclick="viewCompanyStudents('${company}')" class="mt-8 text-slate-400 hover:text-white flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        Back to list
+                    </button>
+                `;
+            } catch (err) { }
+        }
+
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.add('hidden');
+        }
+
+        async function adminLogout() {
+            try {
+                await fetch('/api/auth/logout', { credentials: 'include' });
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('currentUserName');
+                localStorage.removeItem('isAdmin');
+                window.location.href = '/';
+            } catch (e) { window.location.href = '/'; }
+        }
+    </script>
     </div>
 </body>
 

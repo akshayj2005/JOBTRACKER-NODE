@@ -59,6 +59,12 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Global Middleware to set user for EJS templates
+app.use((req, res, next) => {
+    res.locals.user = req.user || null;
+    next();
+});
+
 // Set view engine to EJS
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
@@ -89,19 +95,18 @@ app.listen(PORT, async () => {
 
     // --- Reschedule Notifications on Restart ---
     try {
-        const { readJobs } = require('./src/controllers/jobController');
+        const Job = require('./src/models/Job');
         const User = require('./src/models/User');
         const notificationService = require('./src/services/notificationService');
 
         console.log('🔄 valid jobs for upcoming notifications...');
-        const allJobs = readJobs();
+        const allJobs = await Job.find({});
         let count = 0;
 
         for (const job of allJobs) {
             if (!job.rounds || job.rounds === '[]') continue;
 
-            // Get user for this job
-            const user = await User.findOne({ userId: job.userId || job.user_id });
+            const user = await User.findOne({ userId: job.userId });
             if (!user) continue;
 
             let rounds = [];
@@ -112,7 +117,7 @@ app.listen(PORT, async () => {
             if (Array.isArray(rounds)) {
                 rounds.forEach((round, index) => {
                     if (round.datetime) {
-                        const scheduled = notificationService.scheduleInterviewNotifications(round, job, user, job.id, index);
+                        const scheduled = notificationService.scheduleInterviewNotifications(round, job, user, job._id.toString(), index);
                         if (Object.keys(scheduled).length > 0) count++;
                     }
                 });

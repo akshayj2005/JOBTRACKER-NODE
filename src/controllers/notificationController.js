@@ -19,8 +19,8 @@ exports.scheduleJobNotifications = async (req, res) => {
         let scheduledCount = 0;
 
         // Cancel existing notifications for this job first to avoid duplicates
-        if (job.id || job.__backendId) {
-            notificationService.cancelJobNotifications(job.id || job.__backendId);
+        if (job._id || job.id || job.__backendId) {
+            notificationService.cancelJobNotifications(job._id || job.id || job.__backendId);
         }
 
         // Schedule notifications for each round
@@ -30,7 +30,7 @@ exports.scheduleJobNotifications = async (req, res) => {
                     round,
                     job,
                     user,
-                    job.id,
+                    job._id || job.id,
                     index
                 );
 

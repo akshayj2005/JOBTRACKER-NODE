@@ -4,11 +4,23 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const User = require('../models/User');
 
 passport.serializeUser((user, done) => {
-    done(null, user.id);
+    // Use MongoDB _id for DB users, or userId for hardcoded admin
+    const id = user._id || user.id || user.userId;
+    done(null, id);
 });
 
 passport.deserializeUser(async (id, done) => {
     try {
+        // Handle hardcoded admin
+        if (id === 'admin12') {
+            return done(null, {
+                userId: 'admin12',
+                isAdmin: true,
+                fullName: 'Administrator',
+                email: 'admin@jobtracker.com'
+            });
+        }
+
         const user = await User.findById(id);
         done(null, user);
     } catch (err) {

@@ -12,9 +12,15 @@ const defaultConfig = {
   font_size: 16
 };
 
+// Global state for Company Toggle
+let currentApplicationType = 'Off Campus';
+let companyList = [];
+
 let config = { ...defaultConfig };
-let currentUser = localStorage.getItem('currentUser') || null; // PERSISTENCE
-let jobs = [];
+// Session managed server-side - no localStorage needed
+let currentUser = null; // Will be set from server data
+let currentUserName = null; // PERSISTENCE for full name
+let isAdmin = false; // Admin status
 let jobToDelete = null;
 let recordCount = 0;
 let currentRounds = [];
@@ -25,6 +31,10 @@ let profileEducation = [];
 let profileCertifications = [];
 let profileProjects = [];
 let profileData = {};
+
+// Idle Tracker Constants
+const IDLE_TIMEOUT = 3600000; // 1 hour in ms
+const IDLE_STORAGE_KEY = 'lastActivity';
 
 // Element SDK
 if (window.elementSdk) {
@@ -104,18 +114,43 @@ const dataHandler = {
 
 async function fetchJobs() {
   if (!currentUser) {
+    console.log('No current user logged in. Clearing data.');
     jobs = [];
-    dataHandler.onDataChanged([]);
+    // Reset UI if needed
+    if (document.getElementById('jobList')) renderJobs();
+    if (document.getElementById('statTotal')) updateStats();
     return;
   }
+
   try {
     const response = await fetch('/api/jobs', {
-      headers: { 'X-User-Id': currentUser }
+      credentials: 'include',
+      headers: {
+        'X-User-Id': currentUser
+      }
     });
+
+    if (!response.ok) throw new Error('Failed to fetch jobs');
+
     const data = await response.json();
+    console.log('Job Data Received:', data.length, 'items');
+
+    // Update global jobs array
+    jobs = data;
+    recordCount = jobs.length;
+
+    // Trigger UI updates
+    if (document.getElementById('jobList')) {
+      renderJobs();
+      updateStats();
+    }
+
+    // Also trigger data handler if it does extra logic
     dataHandler.onDataChanged(data);
+
   } catch (err) {
     console.error('Error fetching jobs:', err);
+    showToast('Failed to load data', 'error');
   }
 }
 
@@ -125,20 +160,30 @@ async function initData() {
 
 // Navigation (UPDATED FOR MPA)
 function navigateTo(page) {
+  console.log('navigateTo called with page:', page);
+  console.log('currentUser:', currentUser);
+
   if (page === 'home') {
+    console.log('Navigating to home');
     window.location.href = '/';
   } else if (page === 'contact') {
+    console.log('Navigating to contact');
     window.location.href = '/contact';
   } else if (page === 'profile') {
     if (currentUser) {
+      console.log('Navigating to profile for user:', currentUser);
       window.location.href = '/profile';
     } else {
+      console.log('No user logged in, redirecting to home');
+      showToast('Please login first', 'error');
       window.location.href = '/';
     }
   } else if (page === 'dashboard') {
     if (currentUser) {
+      console.log('Navigating to dashboard for user:', currentUser);
       window.location.href = '/dashboard';
     } else {
+      console.log('No user logged in, showing error');
       showToast('Please login first', 'error');
     }
   }
@@ -146,29 +191,55 @@ function navigateTo(page) {
 
 // Auth Helpers
 function checkAuth() {
+  console.log('checkAuth called, currentUser:', currentUser);
+
+
   if (currentUser) {
+    console.log('User is logged in, showing authenticated UI');
     const userDisplay = document.getElementById('userDisplay');
     const dashboardBtn = document.getElementById('dashboardNavBtn');
+    const adminBtn = document.getElementById('adminNavBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const loginHeaderBtn = document.getElementById('loginHeaderBtn');
     const registerHeaderBtn = document.getElementById('registerHeaderBtn');
 
     if (userDisplay) {
-      userDisplay.textContent = `👤 ${currentUser}`;
+      userDisplay.textContent = `👤 ${currentUserName || currentUser}`;
       userDisplay.classList.remove('hidden');
     }
-    if (dashboardBtn) dashboardBtn.classList.remove('hidden');
+    if (dashboardBtn) {
+      if (isAdmin) {
+        dashboardBtn.classList.add('hidden');
+      } else {
+        dashboardBtn.classList.remove('hidden');
+      }
+    }
+    if (adminBtn) {
+      if (isAdmin) {
+        adminBtn.classList.remove('hidden');
+      } else {
+        adminBtn.classList.add('hidden');
+      }
+    }
     if (logoutBtn) logoutBtn.classList.remove('hidden');
 
     if (loginHeaderBtn) loginHeaderBtn.classList.add('hidden');
     if (registerHeaderBtn) registerHeaderBtn.classList.add('hidden');
   } else {
+    console.log('No user logged in');
     // If on protected page, redirect home
     const path = window.location.pathname;
+    console.log('Current path:', path);
     if (path.includes('/dashboard') || path.includes('/profile')) {
+      console.log('On protected page without auth, redirecting to home');
       window.location.href = '/';
     }
   }
+}
+
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || '';
 }
 
 function scrollToAuthForm(formType) {
@@ -255,6 +326,7 @@ async function handleLogin(e) {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ userId, password })
     });
 
@@ -262,11 +334,22 @@ async function handleLogin(e) {
 
     if (response.ok) {
       if (data.isAdmin) {
+        localStorage.setItem('currentUser', userId);
+        localStorage.setItem('isAdmin', 'true');
+        if (data.user?.fullName) localStorage.setItem('currentUserName', data.user.fullName);
         window.location.href = '/admin';
         return;
       }
       currentUser = userId;
-      localStorage.setItem('currentUser', currentUser);
+      currentUserName = data.user ? data.user.fullName : null;
+      isAdmin = data.isAdmin || false;
+
+      // Persist in localStorage as fallback
+      localStorage.setItem('currentUser', userId);
+      localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+      if (currentUserName) localStorage.setItem('currentUserName', currentUserName);
+
+      // Session managed server-side
       resetIdleTimer();
       checkAuth();
       await fetchJobs();
@@ -291,7 +374,7 @@ async function handleLogin(e) {
     }
   } catch (err) {
     console.error('Login error:', err);
-    showToast('Connection error', 'error');
+    showToast(`Connection error: ${err.message}`, 'error');
   }
 }
 
@@ -329,6 +412,7 @@ async function handleRegister(e) {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ userId, email, password, fullName })
     });
 
@@ -374,6 +458,7 @@ async function handleVerifyOTP(e) {
     const response = await fetch('/api/auth/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ userId, otp })
     });
     const data = await response.json();
@@ -415,6 +500,7 @@ async function resendOTP() {
     const response = await fetch('/api/auth/resend-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ userId })
     });
     if (response.ok) {
@@ -427,13 +513,25 @@ async function resendOTP() {
   }
 }
 
-function logout() {
-  currentUser = null;
-  localStorage.removeItem('currentUser');
-  checkAuth();
-  fetchJobs(); // Clear data
-  navigateTo('home');
-  showToast('Logged out successfully', 'info');
+async function logout() {
+  try {
+    await fetch('/api/auth/logout', { credentials: 'include' });
+    currentUser = null;
+    currentUserName = null;
+    isAdmin = false;
+    // Clear localStorage fallback
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUserName');
+    localStorage.removeItem('isAdmin');
+
+    checkAuth();
+    fetchJobs(); // Clear data
+    navigateTo('home');
+    showToast('Logged out successfully', 'info');
+  } catch (err) {
+    console.error('Logout error:', err);
+    navigateTo('home');
+  }
 }
 
 function togglePasswordVisibility(fieldId) {
@@ -458,6 +556,12 @@ function openAuthModal(tab) {
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.add('hidden');
+}
+
+function closeOtpModal() {
+  document.getElementById('otpModal').classList.add('hidden');
+  document.getElementById('otpForm').reset();
+  document.getElementById('otpMsg').classList.add('hidden');
 }
 
 function openForgotPasswordModal() {
@@ -489,6 +593,7 @@ async function handleForgotPassword(e) {
     const response = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email })
     });
 
@@ -698,194 +803,141 @@ function handleContact(e) {
 async function loadProfile() {
   if (!currentUser) return;
 
-  const profileInfo = jobs.find(j => j.company === 'Profile' && j.position === 'Professional');
+  try {
+    const res = await fetch(`/api/auth/profile/${currentUser}`, {
+      credentials: 'include'
+    });
+    if (res.ok) {
+      profileData = await res.json();
 
-  if (profileInfo) {
-    profileData = { ...profileInfo };
-  } else {
-    profileData = {};
-  }
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; }
 
-  // Auto-fill from registration data if available
-  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; }
+      setVal('profileUserId', currentUser);
+      setVal('fullName', profileData.fullName);
+      setVal('email', profileData.email);
+      setVal('phone', profileData.phone);
+      setVal('location', profileData.location);
+      setVal('summary', profileData.professionalSummary);
+      setVal('profileImageUrl', profileData.profileImage);
+      setVal('linkedinUrl', profileData.linkedin);
+      setVal('githubUrl', profileData.github);
+      setVal('twitterUrl', profileData.twitter);
+      setVal('websiteUrl', profileData.website);
+      setVal('course', profileData.course);
+      setVal('degree', profileData.degree);
 
-  // Set UserID (read-only)
-  setVal('profileUserId', currentUser);
+      if (profileData.profileImage) {
+        updateProfileImagePreview(profileData.profileImage);
+      }
 
-  // Try to find email from registeredUsers if not in profileData (or if profileData is empty)
-  // Try to find email from registeredUsers if not in profileData (or if profileData is empty)
-  // Fix: Fetch from API if available
-  let userEmail = profileData.email;
-  let userFullName = profileData.full_name;
-  let userPhone = profileData.phone;
-
-  if (!userEmail) {
-    if (typeof fetch !== 'undefined') {
-      // Sync with backend user data
       try {
-        const res = await fetch(`/api/auth/profile/${currentUser}`);
-        if (res.ok) {
-          const uData = await res.json();
-          userEmail = uData.email;
-          userFullName = uData.fullName || userFullName;
-          userPhone = uData.phone || userPhone;
-          if (!profileData.profile_image && uData.profileImage) {
-            setVal('profileImageUrl', uData.profileImage);
-            updateProfileImagePreview(uData.profileImage);
-          }
-        }
-      } catch (e) { console.error('Profile sync error:', e); }
+        profileSkills = profileData.skills ? JSON.parse(profileData.skills) : [];
+      } catch (e) { profileSkills = []; }
+
+      try {
+        profileExperience = profileData.experience ? JSON.parse(profileData.experience) : [];
+      } catch (e) { profileExperience = []; }
+
+      try {
+        profileEducation = profileData.education ? JSON.parse(profileData.education) : [];
+      } catch (e) { profileEducation = []; }
+
+      try {
+        profileCertifications = profileData.certifications ? JSON.parse(profileData.certifications) : [];
+      } catch (e) { profileCertifications = []; }
+
+      try {
+        profileProjects = profileData.projects ? JSON.parse(profileData.projects) : [];
+      } catch (e) { profileProjects = []; }
+
+      renderSkillsTable();
+      renderExperienceTable();
+      renderEducationTable();
+      renderCertificationsTable();
+      renderProjectsTable();
     }
-
-    // Legacy fallback
-    if (!userEmail && registeredUsers[currentUser]) {
-      const stored = registeredUsers[currentUser];
-      userEmail = (typeof stored === 'object') ? stored.email : '';
-    }
+  } catch (e) {
+    console.error('Profile fetch error:', e);
+    showToast('Failed to load profile details', 'error');
   }
-
-  setVal('fullName', userFullName);
-  setVal('email', userEmail);
-  setVal('phone', userPhone);
-  setVal('location', profileData.location);
-  setVal('summary', profileData.professional_summary);
-  setVal('profileImageUrl', profileData.profile_image);
-  setVal('linkedinUrl', profileData.linkedin);
-  setVal('githubUrl', profileData.github);
-  setVal('twitterUrl', profileData.twitter);
-  setVal('websiteUrl', profileData.website);
-
-  if (profileData.profile_image) {
-    updateProfileImagePreview(profileData.profile_image);
-  }
-
-  try {
-    profileSkills = profileData.skills ? JSON.parse(profileData.skills) : [];
-  } catch (e) { profileSkills = []; }
-
-  try {
-    profileExperience = profileData.experience ? JSON.parse(profileData.experience) : [];
-  } catch (e) { profileExperience = []; }
-
-  try {
-    profileEducation = profileData.education ? JSON.parse(profileData.education) : [];
-  } catch (e) { profileEducation = []; }
-
-  try {
-    profileCertifications = profileData.certifications ? JSON.parse(profileData.certifications) : [];
-  } catch (e) { profileCertifications = []; }
-
-  try {
-    profileProjects = profileData.projects ? JSON.parse(profileData.projects) : [];
-  } catch (e) { profileProjects = []; }
-
-  renderSkillsTable();
-  renderExperienceTable();
-  renderEducationTable();
-  renderCertificationsTable();
-  renderProjectsTable();
 }
+
 
 async function saveProfile(e) {
   if (e) e.preventDefault();
   resetIdleTimer();
 
   const profileInfo = {
-    full_name: document.getElementById('fullName').value,
+    userId: currentUser,
+    fullName: document.getElementById('fullName').value,
     email: document.getElementById('email').value,
     phone: document.getElementById('phone').value,
     location: document.getElementById('location').value,
-    professional_summary: document.getElementById('summary') ? document.getElementById('summary').value : (profileData.professional_summary || ''),
+    professionalSummary: document.getElementById('summary') ? document.getElementById('summary').value : (profileData.professionalSummary || ''),
     skills: JSON.stringify(profileSkills),
     experience: JSON.stringify(profileExperience),
     education: JSON.stringify(profileEducation),
     certifications: JSON.stringify(profileCertifications),
     projects: JSON.stringify(profileProjects),
-    profile_image: document.getElementById('profileImageUrl') ? document.getElementById('profileImageUrl').value : (profileData.profile_image || ''),
+    profileImage: document.getElementById('profileImageUrl') ? document.getElementById('profileImageUrl').value : (profileData.profileImage || ''),
     linkedin: document.getElementById('linkedinUrl') ? document.getElementById('linkedinUrl').value : (profileData.linkedin || ''),
     github: document.getElementById('githubUrl') ? document.getElementById('githubUrl').value : (profileData.github || ''),
     twitter: document.getElementById('twitterUrl') ? document.getElementById('twitterUrl').value : (profileData.twitter || ''),
     website: document.getElementById('websiteUrl') ? document.getElementById('websiteUrl').value : (profileData.website || ''),
-    user_id: currentUser,
-    company: 'Profile',
-    position: 'Professional',
-    status: 'Profile',
-    rounds: '[]'
+    course: document.getElementById('course') ? document.getElementById('course').value : (profileData.course || 'Other'),
+    degree: document.getElementById('degree') ? document.getElementById('degree').value : (profileData.degree || 'Other')
   };
 
-  const existingProfile = jobs.find(j => j.company === 'Profile' && j.position === 'Professional');
-
   try {
-    let response;
-    if (existingProfile) {
-      response = await fetch(`/api/jobs/${existingProfile.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': currentUser
-        },
-        body: JSON.stringify({ ...existingProfile, ...profileInfo })
-      });
-    } else {
-      response = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': currentUser
-        },
-        body: JSON.stringify(profileInfo)
-      });
-    }
+    const response = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(profileInfo)
+    });
+
+    const data = await response.json();
 
     if (response.ok) {
-      // ALSO sync core details (FullName, Phone, Email) with Cloud DB (MongoDB)
-      try {
-        const updateRes = await fetch('/api/auth/profile', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser,
-            fullName: profileInfo.full_name,
-            phone: profileInfo.phone,
-            email: profileInfo.email // Send email to check for updates
-          })
-        });
-
-        const updateData = await updateRes.json();
-
-        // Check if email verification is required
-        if (updateData.requiresVerification) {
-          // Show OTP Modal strictly for Email Change
-          const otpInput = prompt("Enter the verification code sent to " + updateData.pendingEmail);
-          if (otpInput) {
-            const verifyRes = await fetch('/api/auth/verify-email-change', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: currentUser, otp: otpInput })
-            });
-            if (verifyRes.ok) {
-              alert("Email updated successfully!");
-            } else {
-              const vData = await verifyRes.json();
-              alert("Email update failed: " + vData.error);
-            }
+      // Check if email verification is required
+      if (data.requiresVerification) {
+        const otpInput = prompt("Enter the verification code sent to " + data.pendingEmail);
+        if (otpInput) {
+          const verifyRes = await fetch('/api/auth/verify-email-change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUser, otp: otpInput })
+          });
+          if (verifyRes.ok) {
+            alert("Email updated successfully!");
+            await loadProfile();
+          } else {
+            const vData = await verifyRes.json();
+            alert("Email update failed: " + vData.error);
           }
-        } else if (updateData.error) {
-          console.error("Cloud Profile Update Error: ", updateData.error);
-          if (updateData.error.includes('Email')) alert(updateData.error);
         }
-      } catch (err) {
-        console.error('Cloud profile sync warning:', err);
+      } else if (data.error) {
+        console.error("Profile update error: ", data.error);
+        if (data.error.includes('Email')) alert(data.error);
       }
 
-      await fetchJobs();
       showToast('Profile saved successfully!', 'success');
+
+      // Sync local names/header if changed
+      if (profileInfo.fullName) {
+        currentUserName = profileInfo.fullName;
+        localStorage.setItem('currentUserName', currentUserName);
+        const display = document.getElementById('userDisplay');
+        if (display) display.textContent = currentUserName;
+      }
+
+      await loadProfile();
     } else {
-      throw new Error('Save failed');
+      throw new Error(data.error || 'Save failed');
     }
   } catch (err) {
     console.error('Error saving profile:', err);
-    showToast('Error saving profile', 'error');
+    showToast('Error saving profile: ' + err.message, 'error');
   }
 }
 
@@ -1063,149 +1115,380 @@ function exportToPDF() {
     linkedin: document.getElementById('linkedinUrl') ? document.getElementById('linkedinUrl').value : '',
     github: document.getElementById('githubUrl') ? document.getElementById('githubUrl').value : '',
     twitter: document.getElementById('twitterUrl') ? document.getElementById('twitterUrl').value : '',
-    website: document.getElementById('websiteUrl') ? document.getElementById('websiteUrl').value : ''
+    website: document.getElementById('websiteUrl') ? document.getElementById('websiteUrl').value : '',
+    course: document.getElementById('course') ? document.getElementById('course').value : ''
   };
 
   const cvHtml = `
     <style>
-      .cv-container { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #334155; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-      .cv-header { display: flex; align-items: center; gap: 30px; border-bottom: 2px solid #6366f1; padding-bottom: 25px; margin-bottom: 25px; }
-      .cv-photo { width: 120px; height: 120px; border-radius: 15px; object-cover: cover; background: #f1f5f9; border: 2px solid #e2e8f0; }
-      .cv-info { flex: 1; }
-      .cv-name { font-size: 32px; font-weight: 800; color: #1e293b; margin: 0 0 5px 0; letter-spacing: -0.025em; }
-      .cv-contact { font-size: 14px; color: #64748b; display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 10px; }
-      .cv-social { display: flex; gap: 12px; }
-      .social-link { font-size: 13px; color: #6366f1; text-decoration: none; font-weight: 600; }
-      .cv-section { margin-bottom: 25px; }
-      .cv-section-title { font-size: 16px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.1em; border-left: 4px solid #6366f1; padding-left: 12px; margin-bottom: 15px; }
-      .cv-summary { font-size: 14px; color: #475569; text-align: justify; }
-      .cv-skills-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-      .skill-tag { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 6px; font-size: 13px; color: #475569; }
-      .cv-entry { margin-bottom: 15px; }
-      .cv-entry-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
-      .cv-entry-title { font-weight: 700; color: #1e293b; font-size: 15px; }
-      .cv-entry-subtitle { font-size: 14px; color: #64748b; font-style: italic; }
-      .cv-entry-date { font-size: 13px; color: #94a3b8; font-weight: 500; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      
+      .cv-container { 
+        font-family: 'Inter', sans-serif; 
+        color: #1e293b; 
+        width: 790px;
+        height: 1115px;
+        margin: 0; 
+        padding: 0; 
+        display: flex;
+        background: white;
+        overflow: hidden;
+      }
+      
+      .sidebar {
+        width: 280px;
+        background-color: #f8fafc;
+        border-right: 1px solid #e2e8f0;
+        padding: 40px 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+      
+      .profile-img-container {
+        width: 130px;
+        height: 130px;
+        margin: 0 auto;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 2px solid #6366f1;
+      }
+      
+      .profile-img { width: 100%; height: 100%; object-fit: cover; }
+      
+      .sidebar-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #475569;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 5px;
+      }
+      
+      .contact-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 10.5px;
+        color: #334155;
+        margin-bottom: 10px;
+        line-height: 1.4;
+      }
+
+      .contact-icon { color: #6366f1; font-weight: bold; width: 15px; }
+      
+      .skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+      .skill-badge {
+        background: #f1f5f9;
+        color: #0f172a;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        border: 1px solid #e2e8f0;
+      }
+      
+      .main-content {
+        flex: 1;
+        padding: 50px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+      }
+      
+      .header-name {
+        font-size: 36px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 6px;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      
+      .header-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #6366f1;
+        margin-bottom: 20px;
+      }
+      
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 12px;
+      }
+      
+      .section-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #0f172a;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      
+      .section-line {
+        height: 2px;
+        background: #f1f5f9;
+        flex: 1;
+      }
+      
+      .summary-text {
+        font-size: 11px;
+        line-height: 1.6;
+        color: #334155;
+        text-align: justify;
+      }
+      
+      .entry { margin-bottom: 15px; }
+      .entry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+      }
+      .entry-title { font-size: 13px; font-weight: 700; color: #0f172a; }
+      .entry-subtitle { font-size: 11.5px; font-weight: 600; color: #475569; }
+      .entry-date { font-size: 10.5px; color: #64748b; font-weight: 600; }
+      .entry-desc { font-size: 10.5px; color: #475569; margin-top: 4px; line-height: 1.5; }
+
+      .social-link { color: #6366f1; text-decoration: none; word-break: break-all; }
+      
     </style>
     <div class="cv-container">
-      <div class="cv-header">
-        ${data.image ? `<img src="${data.image}" class="cv-photo">` : ''}
-        <div class="cv-info">
-          <h1 class="cv-name">${escapeHtml(data.fullName)}</h1>
-          <div class="cv-contact">
-            <span>📍 ${escapeHtml(data.location)}</span>
-            <span>📧 ${escapeHtml(data.email)}</span>
-            <span>📞 ${escapeHtml(data.phone)}</span>
-          </div>
-          <div class="cv-social">
-            ${data.linkedin ? `<a href="${data.linkedin}" class="social-link">LinkedIn</a>` : ''}
-            ${data.github ? `<a href="${data.github}" class="social-link">GitHub</a>` : ''}
-            ${data.twitter ? `<a href="${data.twitter}" class="social-link">Twitter</a>` : ''}
-            ${data.website ? `<a href="${data.website}" class="social-link">Website</a>` : ''}
+      <div class="sidebar">
+        ${data.image ? `<div class="profile-img-container"><img src="${data.image}" class="profile-img"></div>` : ''}
+        
+        <div>
+          <div class="sidebar-section-title">Contact</div>
+          <div class="contact-item"><span class="contact-icon">📍</span> ${escapeHtml(data.location)}</div>
+          <div class="contact-item"><span class="contact-icon">📞</span> ${escapeHtml(data.phone)}</div>
+          <div class="contact-item"><span class="contact-icon">📧</span> ${escapeHtml(data.email)}</div>
+          ${data.website ? `<div class="contact-item"><span class="contact-icon">🔗</span> <a href="${data.website}" class="social-link">${data.website.replace(/^https?:\/\//, '')}</a></div>` : ''}
+        </div>
+        
+        ${(data.linkedin || data.github || data.twitter) ? `
+        <div>
+          <div class="sidebar-section-title">Social Profiles</div>
+          ${data.linkedin ? `<div class="contact-item"><span class="contact-icon">in</span> <a href="${data.linkedin}" class="social-link">linkedin.com/in/${data.linkedin.split('/').filter(Boolean).pop()}</a></div>` : ''}
+          ${data.github ? `<div class="contact-item"><span class="contact-icon">gh</span> <a href="${data.github}" class="social-link">github.com/${data.github.split('/').filter(Boolean).pop()}</a></div>` : ''}
+          ${data.twitter ? `<div class="contact-item"><span class="contact-icon">tw</span> <a href="${data.twitter}" class="social-link">@${data.twitter.split('/').filter(Boolean).pop()}</a></div>` : ''}
+        </div>
+        ` : ''}
+        
+        ${profileSkills.length > 0 ? `
+        <div>
+          <div class="sidebar-section-title">Skills & Tech Stack</div>
+          <div class="skill-tags">
+            ${profileSkills.map(s => `<span class="skill-badge">${escapeHtml(s.name)}</span>`).join('')}
           </div>
         </div>
+        ` : ''}
+
+        ${profileCertifications.length > 0 ? `
+        <div>
+          <div class="sidebar-section-title">Certifications</div>
+          ${profileCertifications.slice(0, 5).map(cert => `
+            <div style="margin-bottom: 10px;">
+              <div style="font-size: 10.5px; font-weight: 700; color: #0f172a;">${escapeHtml(cert.name)}</div>
+              <div style="font-size: 9.5px; color: #64748b; font-weight: 500;">${escapeHtml(cert.issuer)} | ${escapeHtml(cert.year)}</div>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
       </div>
-
-      ${data.summary ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Professional Summary</div>
-          <div class="cv-summary">${escapeHtml(data.summary).replace(/\n/g, '<br>')}</div>
+      
+      <div class="main-content">
+        <div>
+          <h1 class="header-name">${escapeHtml(data.fullName)}</h1>
+          <p class="header-title">${data.course ? escapeHtml(data.course) : 'Professional Career Candidate'}</p>
         </div>
-      ` : ''}
-
-      ${profileSkills.length > 0 ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Skills & Expertise</div>
-          <div class="cv-skills-grid">
-            ${profileSkills.map(s => `<span class="skill-tag">${escapeHtml(s.name)}</span>`).join('')}
-          </div>
+        
+        ${data.summary ? `
+        <div class="section">
+          <div class="section-header"><span class="section-title">Professional Summary</span><div class="section-line"></div></div>
+          <p class="summary-text">${escapeHtml(data.summary).replace(/\n/g, '<br>')}</p>
         </div>
-      ` : ''}
-
-      ${profileExperience.length > 0 ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Work Experience</div>
+        ` : ''}
+        
+        ${profileExperience.length > 0 ? `
+        <div class="section">
+          <div class="section-header"><span class="section-title">Experience</span><div class="section-line"></div></div>
           ${profileExperience.map(exp => `
-            <div class="cv-entry">
-              <div class="cv-entry-header">
-                <span class="cv-entry-title">${escapeHtml(exp.role)} at ${escapeHtml(exp.company)}</span>
-                <span class="cv-entry-date">${escapeHtml(exp.duration)}</span>
+            <div class="entry">
+              <div class="entry-header">
+                <span class="entry-title">${escapeHtml(exp.role)}</span>
+                <span class="entry-date">${escapeHtml(exp.duration)}</span>
               </div>
+              <div class="entry-subtitle">${escapeHtml(exp.company)}</div>
             </div>
           `).join('')}
         </div>
-      ` : ''}
-
-      ${profileProjects.length > 0 ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Projects</div>
+        ` : ''}
+        
+        ${profileProjects.length > 0 ? `
+        <div class="section">
+          <div class="section-header"><span class="section-title">Featured Projects</span><div class="section-line"></div></div>
           ${profileProjects.map(proj => `
-            <div class="cv-entry">
-              <div class="cv-entry-header">
-                <span class="cv-entry-title">${escapeHtml(proj.name)}</span>
-                <span class="cv-entry-date">${escapeHtml(proj.date)}</span>
+            <div class="entry">
+              <div class="entry-header">
+                <span class="entry-title">${escapeHtml(proj.name)}</span>
+                <span class="entry-date">${escapeHtml(proj.date)}</span>
               </div>
-              <div class="cv-entry-subtitle">${escapeHtml(proj.url)}</div>
+              <div class="entry-desc">${escapeHtml(proj.url)}</div>
             </div>
           `).join('')}
         </div>
-      ` : ''}
-
-      ${profileEducation.length > 0 ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Education</div>
+        ` : ''}
+        
+        ${profileEducation.length > 0 ? `
+        <div class="section">
+          <div class="section-header"><span class="section-title">Education</span><div class="section-line"></div></div>
           ${profileEducation.map(edu => `
-            <div class="cv-entry">
-              <div class="cv-entry-header">
-                <span class="cv-entry-title">${escapeHtml(edu.degree)}</span>
-                <span class="cv-entry-date">${escapeHtml(edu.year)}</span>
+            <div class="entry">
+              <div class="entry-header">
+                <span class="entry-title">${escapeHtml(edu.degree)}</span>
+                <span class="entry-date">${escapeHtml(edu.year)}</span>
               </div>
-              <div class="cv-entry-subtitle">${escapeHtml(edu.institution)}</div>
+              <div class="entry-subtitle">${escapeHtml(edu.institution)}</div>
             </div>
           `).join('')}
         </div>
-      ` : ''}
-
-      ${profileCertifications.length > 0 ? `
-        <div class="cv-section">
-          <div class="cv-section-title">Certifications</div>
-          ${profileCertifications.map(cert => `
-            <div class="cv-entry">
-              <div class="cv-entry-header">
-                <span class="cv-entry-title">${escapeHtml(cert.name)}</span>
-                <span class="cv-entry-date">${escapeHtml(cert.year)}</span>
-              </div>
-              <div class="cv-entry-subtitle">${escapeHtml(cert.issuer)}</div>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
+        ` : ''}
+      </div>
     </div>
   `;
 
   const element = document.createElement('div');
   element.innerHTML = cvHtml;
+  document.body.appendChild(element);
 
   const opt = {
-    margin: [10, 10],
+    margin: 0,
     filename: `${data.fullName.replace(/\s+/g, '_')}_Resume.pdf`,
     image: { type: 'jpeg', quality: 1 },
-    html2canvas: { scale: 3, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    html2canvas: {
+      scale: 3,
+      useCORS: true,
+      letterRendering: true,
+      width: 790,
+      height: 1120
+    },
+    jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
   };
 
   if (window.html2pdf) {
-    showToast('Generating high-quality PDF...', 'info');
-    window.html2pdf().set(opt).from(element).save();
+    showToast('Generating premium single-page CV...', 'info');
+    window.html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+    }).catch(err => {
+      console.error('PDF generation error:', err);
+      document.body.removeChild(element);
+    });
   } else {
     showToast('PDF engine not loaded', 'error');
+    document.body.removeChild(element);
+  }
+}
+
+// New Helpers for Application Type
+async function fetchCourses() {
+  const select = document.getElementById('course');
+  if (!select) return;
+
+  try {
+    const response = await fetch('/admin/courses/public');
+    if (response.ok) {
+      const courses = await response.json();
+      const currentValue = select.value;
+      select.innerHTML = '<option value="" disabled>Select your course</option>' +
+        courses.map(c => `<option value="${escapeHtml(c)}" ${c === currentValue ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+
+      // If we have profile data, set the value after loading
+      if (profileData.course) {
+        select.value = profileData.course;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch courses', err);
+  }
+}
+
+async function fetchCompanies() {
+  try {
+    const response = await fetch('/admin/companies/public');
+    if (response.ok) {
+      companyList = await response.json();
+    }
+  } catch (err) {
+    console.error('Failed to fetch companies', err);
+  }
+}
+
+function setApplicationType(type) {
+  currentApplicationType = type;
+  document.getElementById('jobApplicationType').value = type;
+
+  // Toggle Button Styles
+  const btnIn = document.getElementById('btnInCampus');
+  const btnOff = document.getElementById('btnOffCampus');
+
+  if (type === 'In Campus' || type === 'In-Campus') {
+    btnIn.classList.add('bg-indigo-600', 'text-white');
+    btnIn.classList.remove('bg-transparent', 'text-slate-400');
+    btnOff.classList.remove('bg-indigo-600', 'text-white');
+    btnOff.classList.add('bg-transparent', 'text-slate-400');
+    // Normalize to space version for the hidden input
+    document.getElementById('jobApplicationType').value = 'In Campus';
+  } else {
+    btnOff.classList.add('bg-indigo-600', 'text-white');
+    btnOff.classList.remove('bg-transparent', 'text-slate-400');
+    btnIn.classList.remove('bg-indigo-600', 'text-white');
+    btnIn.classList.add('bg-transparent', 'text-slate-400');
+    // Normalize to space version for the hidden input
+    document.getElementById('jobApplicationType').value = 'Off Campus';
+  }
+
+  renderCompanyInput();
+}
+
+function renderCompanyInput(preselectedValue = '') {
+  const container = document.getElementById('companyInputContainer');
+  container.innerHTML = '';
+
+  if (currentApplicationType === 'In Campus') {
+    const select = document.createElement('select');
+    select.id = 'jobCompany';
+    select.required = true;
+    select.className = "w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white";
+
+    select.innerHTML = `<option value="" disabled ${!preselectedValue ? 'selected' : ''}>Select Company</option>` +
+      companyList.map(c => `<option value="${escapeHtml(c.name)}" ${c.name === preselectedValue ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+
+    container.appendChild(select);
+  } else {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'jobCompany';
+    input.required = true;
+    input.className = "w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500";
+    input.placeholder = "e.g., Google";
+    input.value = preselectedValue;
+    container.appendChild(input);
   }
 }
 
 // Job CRUD
-function openAddModal() {
+async function openAddModal() {
+  await fetchCompanies();
   document.getElementById('modalTitle').textContent = 'Add Job Application';
   document.getElementById('jobForm').reset();
+
+  // Default to Off Campus
+  setApplicationType('Off Campus');
+
   document.getElementById('editingJobId').value = '';
   document.getElementById('jobDate').value = new Date().toISOString().split('T')[0];
   currentRounds = [];
@@ -1213,13 +1496,22 @@ function openAddModal() {
   document.getElementById('jobModal').classList.remove('hidden');
 }
 
-function openEditModal(job) {
+async function openEditModal(job) {
+  await fetchCompanies();
   document.getElementById('modalTitle').textContent = 'Edit Application';
-  document.getElementById('editingJobId').value = job.id;
-  document.getElementById('jobCompany').value = job.company;
+  document.getElementById('editingJobId').value = job._id;
+
+  // Determine Type
+  const type = job.applicationType || 'Off Campus';
+  setApplicationType(type);
+
+  // Render Input with Value
+  renderCompanyInput(job.company);
+
+  // Set other fields
   document.getElementById('jobPosition').value = job.position;
   document.getElementById('jobStatus').value = job.status;
-  document.getElementById('jobDate').value = job.applied_date || '';
+  document.getElementById('jobDate').value = job.applied_date ? job.applied_date.split('T')[0] : '';
   document.getElementById('jobNotes').value = job.notes || '';
   currentRounds = job.rounds ? JSON.parse(job.rounds) : [];
   renderRoundsTable();
@@ -1278,13 +1570,23 @@ async function handleJobSubmit(e) {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Saving...';
 
+  const companyName = document.getElementById('jobCompany').value;
+  let applicationType = document.getElementById('jobApplicationType').value;
+
+  // AUTO-NORMALIZATION: If company is in the In-Campus list, force the type to In Campus
+  const isInCampusCompany = companyList.some(c => c.name.toLowerCase() === companyName.toLowerCase());
+  if (isInCampusCompany) {
+    applicationType = 'In Campus';
+  }
+
   const jobData = {
-    company: document.getElementById('jobCompany').value,
+    company: companyName,
+    applicationType: applicationType,
     position: document.getElementById('jobPosition').value,
     status: document.getElementById('jobStatus').value,
-    applied_date: document.getElementById('jobDate').value,
+    appliedDate: document.getElementById('jobDate').value,
     notes: document.getElementById('jobNotes').value,
-    user_id: currentUser,
+    userId: currentUser,
     rounds: JSON.stringify(currentRounds)
   };
 
@@ -1318,8 +1620,6 @@ async function handleJobSubmit(e) {
       const savedJob = resultData;
       await fetchJobs();
 
-      // Notifications are now scheduled automatically by the backend
-
       closeModal();
       showToast(editingId ? 'Application updated!' : 'Application added!', 'success');
     } else {
@@ -1351,9 +1651,12 @@ async function confirmDelete() {
   btn.textContent = 'Deleting...';
 
   try {
-    const response = await fetch(`/api/jobs/${jobToDelete.id}`, {
+    const response = await fetch(`/api/jobs/${jobToDelete._id}`, {
       method: 'DELETE',
-      headers: { 'X-User-Id': currentUser }
+      credentials: 'include',
+      headers: {
+        'X-User-Id': currentUser
+      }
     });
 
     btn.disabled = false;
@@ -1363,7 +1666,7 @@ async function confirmDelete() {
     if (response.ok) {
       await fetchJobs();
       // Cancel notifications
-      fetch(`/api/notifications/job/${jobToDelete.id}`, {
+      fetch(`/api/notifications/job/${jobToDelete._id}`, {
         method: 'DELETE'
       }).catch(err => console.error('Error canceling notifications:', err));
 
@@ -1406,7 +1709,7 @@ function renderJobs() {
   }
 
   container.innerHTML = userJobs.map(job => `
-        <div class="card-gradient rounded-xl p-5 border border-slate-700/50 hover:border-indigo-500/30 transition-all slide-in" data-job-id="${job.id}">
+        <div class="card-gradient rounded-xl p-5 border border-slate-700/50 hover:border-indigo-500/30 transition-all slide-in" data-job-id="${job._id}">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex-1">
               <div class="flex items-center gap-3 mb-2">
@@ -1416,7 +1719,7 @@ function renderJobs() {
               <p class="text-slate-300">${escapeHtml(job.position)}</p>
               ${job.applied_date ? `<p class="text-slate-500 text-sm mt-1">Applied: ${formatDate(job.applied_date)}</p>` : ''}
               ${job.notes ? `<p class="text-slate-400 text-sm mt-2 italic">"${escapeHtml(job.notes)}"</p>` : ''}
-              ${job.rounds && JSON.parse(job.rounds).length > 0 ? `<div class="mt-3 text-xs"><p class="text-slate-500 font-medium mb-1">Rounds:</p><div class="space-y-1">${JSON.parse(job.rounds).map(r => `<p class="text-slate-400">• ${escapeHtml(r.round)} - ${formatDate(r.date)}</p>`).join('')}</div></div>` : ''}
+              ${job.rounds && JSON.parse(job.rounds).length > 0 ? `<div class="mt-3 text-xs"><p class="text-slate-500 font-medium mb-1">Rounds:</p><div class="space-y-1">${JSON.parse(job.rounds).map(r => `<p class="text-slate-400">• ${escapeHtml(r.round)} - ${formatDate(r.datetime)}</p>`).join('')}</div></div>` : ''}
             </div>
             <div class="flex items-center gap-2">
               <button onclick='openEditModal(${JSON.stringify(job).replace(/'/g, "\\'")})' class="p-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all" title="Edit">
@@ -1497,13 +1800,45 @@ function showToast(message, type = 'info') {
 
 // Initialization
 window.addEventListener('DOMContentLoaded', async () => {
+  console.log('--- SESSION INITIALIZATION ---');
+  console.log('window.SERVER_USER:', window.SERVER_USER);
+
+  // Initialize currentUser from server-injected data with localStorage fallback
+  if (window.SERVER_USER && window.SERVER_USER.userId) {
+    currentUser = window.SERVER_USER.userId;
+    currentUserName = window.SERVER_USER.fullName || null;
+    isAdmin = window.SERVER_USER.isAdmin || false;
+    console.log('Session active (Server):', currentUser, currentUserName, 'Admin:', isAdmin);
+    // Sync localStorage
+    localStorage.setItem('currentUser', currentUser);
+    localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+    if (currentUserName) localStorage.setItem('currentUserName', currentUserName);
+  } else {
+    // Fallback to localStorage
+    const savedUser = localStorage.getItem('currentUser');
+    const savedName = localStorage.getItem('currentUserName');
+    const savedAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (savedUser) {
+      currentUser = savedUser;
+      currentUserName = savedName || null;
+      isAdmin = savedAdmin;
+      console.log('Session active (Fallback/LocalStorage):', currentUser, currentUserName, 'Admin:', isAdmin);
+    } else {
+      currentUser = null;
+      currentUserName = null;
+      isAdmin = false;
+      console.log('No active session.');
+    }
+  }
+
   applyConfig();
   checkAuth();
   await initData();
 
   // Page specific init
   if (document.getElementById('profilePage')) {
-    loadProfile();
+    await fetchCourses();
+    await loadProfile();
   }
 
   // Handle URL params for auth
@@ -1520,8 +1855,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- Idle Tracker ---
-const IDLE_TIMEOUT = 3600000; // 1 hour in ms
-const IDLE_STORAGE_KEY = 'lastActivity';
 
 function resetIdleTimer() {
   if (!currentUser) return;

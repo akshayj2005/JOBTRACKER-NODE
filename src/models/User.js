@@ -44,7 +44,21 @@ const userSchema = new mongoose.Schema({
     googleId: { type: String },
     githubId: { type: String },
     profileImage: { type: String },
-    authProvider: { type: String, default: 'local' }
+    authProvider: { type: String, default: 'local' },
+    // Profile Fields
+    location: { type: String, trim: true },
+    professionalSummary: { type: String, trim: true },
+    skills: { type: String, default: '[]' },
+    experience: { type: String, default: '[]' },
+    education: { type: String, default: '[]' },
+    certifications: { type: String, default: '[]' },
+    projects: { type: String, default: '[]' },
+    linkedin: { type: String, trim: true },
+    github: { type: String, trim: true },
+    twitter: { type: String, trim: true },
+    website: { type: String, trim: true },
+    degree: { type: String, trim: true },
+    course: { type: String, trim: true }
 });
 
 module.exports = mongoose.model('User', userSchema);

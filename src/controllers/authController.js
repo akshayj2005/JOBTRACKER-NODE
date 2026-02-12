@@ -1,9 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const User = require('../models/User');
 const notificationService = require('../services/notificationService');
-
-const jobsFilePath = path.join(__dirname, '../data/jobs.json');
 
 exports.register = async (req, res) => {
     try {
@@ -129,12 +125,20 @@ exports.login = async (req, res) => {
                 // Set Admin Session
                 req.session.isAdmin = true;
                 req.session.userId = userId;
-                return res.json({
-                    message: 'Admin Login Successful',
-                    userId: 'admin12',
-                    isAdmin: true, // Flag for frontend
-                    user: { fullName: 'Administrator', email: 'admin@jobtracker.com' }
+
+                // Establish session with req.login
+                req.login({ userId: 'admin12', isAdmin: true }, (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Session creation failed' });
+                    }
+                    return res.json({
+                        message: 'Admin Login Successful',
+                        userId: 'admin12',
+                        isAdmin: true,
+                        user: { fullName: 'Administrator', email: 'admin@jobtracker.com' }
+                    });
                 });
+                return;
             } else {
                 return res.status(401).json({ error: 'Invalid credentials' });
             }
@@ -154,16 +158,24 @@ exports.login = async (req, res) => {
             });
         }
 
-        res.json({
-            message: 'Login successful',
-            userId: user.userId,
-            isAdmin: false,
-            user: {
-                email: user.email,
-                fullName: user.fullName,
-                phone: user.phone,
-                notificationPreferences: user.notificationPreferences
+        // Establish session with req.login
+        req.login(user, (err) => {
+            if (err) {
+                console.error('Session creation error:', err);
+                return res.status(500).json({ error: 'Session creation failed' });
             }
+
+            res.json({
+                message: 'Login successful',
+                userId: user.userId,
+                isAdmin: false,
+                user: {
+                    email: user.email,
+                    fullName: user.fullName,
+                    phone: user.phone,
+                    notificationPreferences: user.notificationPreferences
+                }
+            });
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -172,30 +184,26 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
-    res.json({ message: 'Logged out successfully' });
+    req.logout((err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Logout failed' });
+        }
+        req.session.destroy((err) => {
+            if (err) {
+                return res.status(500).json({ error: 'Session destruction failed' });
+            }
+            res.clearCookie('connect.sid'); // Clear the session cookie
+            res.json({ message: 'Logged out successfully' });
+        });
+    });
 };
 
 exports.forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        // 1. Try to find user by registration email in Cloud DB
-        let user = await User.findOne({ email });
-
-        // 2. If not found, try to find in profile details (jobs.json fallback)
-        if (!user) {
-            try {
-                if (fs.existsSync(jobsFilePath)) {
-                    const jobs = JSON.parse(fs.readFileSync(jobsFilePath, 'utf8') || '[]');
-                    const profile = jobs.find(j => j.company === 'Profile' && j.email === email);
-                    if (profile && profile.userId) {
-                        user = await User.findOne({ userId: profile.userId });
-                    }
-                }
-            } catch (err) {
-                console.error('Error searching profile emails:', err);
-            }
-        }
+        // Find user by registration email in MongoDB
+        const user = await User.findOne({ email });
 
         if (!user) {
             return res.status(404).json({ error: 'No account found with this email address.' });
@@ -207,9 +215,7 @@ exports.forgotPassword = async (req, res) => {
         console.error('Forgot password error:', error);
         res.status(500).json({
             error: 'Failed to send recovery email.',
-            details: error.message || 'Unknown error',
-            code: error.code || error.statusCode || 'NO_CODE',
-            raw: error
+            details: error.message || 'Unknown error'
         });
     }
 };
@@ -246,17 +252,45 @@ exports.testEmail = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user?.userId || req.params.userId;
+        if (!userId) return res.status(401).json({ error: 'User ID required' });
+
+        // Handle Hardcoded Admin
+        if (userId === 'admin12') {
+            return res.json({
+                userId: 'admin12',
+                fullName: 'Administrator',
+                email: 'admin@jobtracker.com',
+                phone: 'N/A',
+                isVerified: true,
+                authProvider: 'local',
+                notificationPreferences: { email: true, intervals: [] }
+            });
+        }
+
         const user = await User.findOne({ userId });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        // Return only safe fields
+        // Return only safe fields, including all profile fields
         res.json({
             userId: user.userId,
             email: user.email,
             fullName: user.fullName || '',
             phone: user.phone || '',
-            profileImage: user.profileImage || ''
+            profileImage: user.profileImage || '',
+            location: user.location || '',
+            professionalSummary: user.professionalSummary || '',
+            skills: user.skills || '[]',
+            experience: user.experience || '[]',
+            education: user.education || '[]',
+            certifications: user.certifications || '[]',
+            projects: user.projects || '[]',
+            linkedin: user.linkedin || '',
+            github: user.github || '',
+            twitter: user.twitter || '',
+            website: user.website || '',
+            degree: user.degree || '',
+            course: user.course || ''
         });
     } catch (error) {
         console.error('Get profile error:', error);
@@ -266,28 +300,50 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const { userId, fullName, phone, email } = req.body;
+        const profileData = req.body;
+        const userId = req.user?.userId || profileData.userId;
+        const { email } = profileData;
         if (!userId) return res.status(401).json({ error: 'User ID required' });
+
+        if (userId === 'admin12') {
+            return res.status(403).json({ error: 'Hardcoded admin profile cannot be modified via API' });
+        }
 
         const user = await User.findOne({ userId });
         if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Fields to update directly
+        const directFields = [
+            'fullName', 'phone', 'degree', 'location',
+            'professionalSummary', 'skills', 'experience',
+            'education', 'certifications', 'projects',
+            'linkedin', 'github', 'twitter', 'website', 'profileImage', 'course'
+        ];
+
+        directFields.forEach(field => {
+            if (profileData[field] !== undefined) {
+                user[field] = profileData[field];
+            }
+        });
+
+        // Handle snake_case to camelCase mapping for fields that might come from legacy frontend
+        if (profileData.full_name) user.fullName = profileData.full_name;
+        if (profileData.professional_summary) user.professionalSummary = profileData.professional_summary;
 
         let emailUpdateMsg = '';
         let requiresVerification = false;
 
         // Check for Email Change
         if (email && email.toLowerCase() !== user.email.toLowerCase()) {
-            // Check if new email is already taken
             const emailExists = await User.findOne({ email });
             if (emailExists) {
                 return res.status(400).json({ error: 'Email already in use by another account.' });
             }
 
-            // Generate OTP for email change
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             user.pendingEmail = email;
             user.otp = otp;
-            user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+            user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
             try {
                 await notificationService.sendOTPEmail(email, otp);
@@ -299,15 +355,16 @@ exports.updateProfile = async (req, res) => {
             }
         }
 
-        // Update other fields directly
-        user.fullName = fullName;
-        user.phone = phone;
-
         await user.save();
 
         res.json({
             message: 'Profile updated.' + emailUpdateMsg,
-            user: { fullName: user.fullName, phone: user.phone, email: user.email }, // Return old email until verified
+            user: {
+                fullName: user.fullName,
+                phone: user.phone,
+                email: user.email,
+                profileImage: user.profileImage
+            },
             requiresVerification,
             pendingEmail: email
         });
@@ -345,21 +402,11 @@ exports.verifyEmailChange = async (req, res) => {
 
 // --- OAuth Callback Handler ---
 exports.oauthCallback = (req, res) => {
-    // User is already authenticated by Passport
+    // User is already authenticated by Passport and session is established
     if (!req.user) {
         return res.redirect('/?error=AuthenticationFailed');
     }
 
-    // Render a temporary page to set localStorage and redirect
-    res.send(`
-        <html>
-        <body>
-            <script>
-                localStorage.setItem('currentUser', '${req.user.userId}');
-                window.location.href = '/dashboard';
-            </script>
-            <p>Logging you in...</p>
-        </body>
-        </html>
-    `);
+    // Simply redirect to dashboard - session is already established
+    res.redirect('/dashboard');
 };
