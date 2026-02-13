@@ -42,8 +42,21 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session & Passport Configuration
 const session = require('express-session');
-const { MongoStore } = require('connect-mongo');
-console.log('MongoStore imported:', MongoStore);
+// Robust connect-mongo import
+const connectMongoRaw = require('connect-mongo');
+console.log('DEBUG: connect-mongo raw import:', typeof connectMongoRaw, Object.keys(connectMongoRaw));
+
+let MongoStore;
+if (connectMongoRaw.create) {
+    MongoStore = connectMongoRaw;
+} else if (connectMongoRaw.default && connectMongoRaw.default.create) {
+    MongoStore = connectMongoRaw.default;
+} else if (connectMongoRaw.MongoStore && connectMongoRaw.MongoStore.create) {
+    MongoStore = connectMongoRaw.MongoStore;
+} else {
+    console.error('ERROR: Could not resolve MongoStore.create!');
+}
+console.log('DEBUG: Resolved MongoStore:', MongoStore ? 'Found' : 'Not Found');
 const passport = require('./src/config/passport');
 
 console.log('Initializing session middleware...');
