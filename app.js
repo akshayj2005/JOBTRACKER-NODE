@@ -33,6 +33,9 @@ const upload = multer({
 });
 
 const app = express();
+// Trust Proxy for Render (Required for secure cookies behind load balancer)
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3001;
 
 // Serve static files from 'src/public'
@@ -44,7 +47,6 @@ app.use(express.urlencoded({ extended: true }));
 const session = require('express-session');
 // Robust connect-mongo import
 const connectMongoRaw = require('connect-mongo');
-console.log('DEBUG: connect-mongo raw import:', typeof connectMongoRaw, Object.keys(connectMongoRaw));
 
 let MongoStore;
 if (connectMongoRaw.create) {
@@ -54,12 +56,11 @@ if (connectMongoRaw.create) {
 } else if (connectMongoRaw.MongoStore && connectMongoRaw.MongoStore.create) {
     MongoStore = connectMongoRaw.MongoStore;
 } else {
-    console.error('ERROR: Could not resolve MongoStore.create!');
+    // Fallback or error if needed (though one of the above usually catches it)
+    MongoStore = connectMongoRaw;
 }
-console.log('DEBUG: Resolved MongoStore:', MongoStore ? 'Found' : 'Not Found');
-const passport = require('./src/config/passport');
 
-console.log('Initializing session middleware...');
+const passport = require('./src/config/passport');
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'secret',
@@ -77,7 +78,6 @@ app.use(session({
         maxAge: 30 * 60 * 1000 // 30 minutes
     }
 }));
-console.log('Session middleware initialized.');
 
 app.use(passport.initialize());
 app.use(passport.session());
