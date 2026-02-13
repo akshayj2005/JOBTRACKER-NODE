@@ -42,19 +42,29 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session & Passport Configuration
 const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
+console.log('MongoStore imported:', MongoStore);
 const passport = require('./src/config/passport');
+
+console.log('Initializing session middleware...');
 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'secret',
     resave: false,
     saveUninitialized: false,
-    rolling: true, // Refreshes cookie on every response
+    rolling: true,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: 'sessions',
+        ttl: 30 * 60 // 30 minutes
+    }),
     cookie: {
-        secure: false, // Set to true if using HTTPS
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
         httpOnly: true,
-        maxAge: 30 * 60 * 1000 // 30 minutes idle timeout
+        maxAge: 30 * 60 * 1000 // 30 minutes
     }
 }));
+console.log('Session middleware initialized.');
 
 app.use(passport.initialize());
 app.use(passport.session());
