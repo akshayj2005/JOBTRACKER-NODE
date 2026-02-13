@@ -8,17 +8,23 @@
     "dev": "nodemon app.js"
   },
   "keywords": [],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cloudinary": "^2.9.0",
+    "connect-mongo": "^5.1.0",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",
     "express": "^4.22.1",
     "express-session": "^1.19.0",
-    "connect-mongo": "^5.1.0",
     "googleapis": "^171.4.0",
+    "mongodb": "^7.1.0",
     "mongoose": "^9.1.6",
     "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
     "node-schedule": "^2.1.1",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",

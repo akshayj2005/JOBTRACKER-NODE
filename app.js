@@ -11,15 +11,8 @@ const connectDB = require('./src/config/db');
 connectDB();
 
 // Configure multer for profile image uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'src/public/uploads/');
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Configure Cloudinary Storage
+const { storage } = require('./src/config/cloudinary');
 const upload = multer({
     storage: storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -107,7 +100,8 @@ app.use('/admin', require('./src/routes/adminRoutes'));
 // Image Upload Route
 app.post('/api/upload', upload.single('profileImage'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const imageUrl = `/uploads/${req.file.filename}`;
+    // Cloudinary returns the URL in req.file.path
+    const imageUrl = req.file.path;
     res.json({ imageUrl });
 });
 
