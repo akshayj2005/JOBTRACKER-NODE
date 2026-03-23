@@ -1,76 +1,54 @@
 const schedule = require('node-schedule');
-const { google } = require('googleapis');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 class NotificationService {
     constructor() {
         this.scheduledJobs = new Map(); // Store scheduled jobs by ID
 
-        const clientId = process.env.GMAIL_CLIENT_ID;
-        const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-        const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-        const redirectUri = process.env.GMAIL_REDIRECT_URI || 'https://developers.google.com/oauthplayground';
+        this.transporter = nodemailer.createTransport({
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: process.env.EMAIL_PORT || 465,
+            secure: true, // true for 465, false for other ports
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
 
-        if (clientId && clientSecret && refreshToken) {
-            const oauth2Client = new google.auth.OAuth2(
-                clientId,
-                clientSecret,
-                redirectUri
-            );
-
-            oauth2Client.setCredentials({ refresh_token: refreshToken });
-            this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-            console.log('Gmail API Service initialized (OAuth2 Mode)');
-        } else {
-            this.gmail = null;
-            console.warn('CRITICAL: Gmail API credentials missing. Emails will NOT be sent.');
-            console.log('Required: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
-        }
+        // Verify transporter configuration
+        this.transporter.verify((error, success) => {
+            if (error) {
+                console.warn('CRITICAL: Gmail SMTP configuration error. Emails will NOT be sent.', error);
+            } else {
+                console.log('Gmail SMTP Server is ready to take our messages');
+            }
+        });
     }
 
     /**
-     * Internal helper to send email using Gmail REST API
+     * Internal helper to send email using Nodemailer
      */
     async sendEmail(to, subject, html, fromName = 'JobTracker') {
-        if (!this.gmail) {
-            console.error('Cannot send email: Gmail API is not configured.');
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.error('Cannot send email: EMAIL_USER or EMAIL_PASS not configured.');
             return null;
         }
 
         try {
-            const fromEmail = process.env.EMAIL_USER || 'me';
+            const fromEmail = process.env.EMAIL_USER;
 
-            // Build RFC822/MIME message
-            const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
-            const messageParts = [
-                `From: ${fromName} <${fromEmail}>`,
-                `To: ${to}`,
-                'Content-Type: text/html; charset=utf-8',
-                'MIME-Version: 1.0',
-                `Subject: ${utf8Subject}`,
-                '',
-                html,
-            ];
-            const message = messageParts.join('\n');
-
-            // Encode to Base64URL
-            const encodedMessage = Buffer.from(message)
-                .toString('base64')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-
-            const res = await this.gmail.users.messages.send({
-                userId: 'me',
-                requestBody: {
-                    raw: encodedMessage,
-                },
+            const info = await this.transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: to,
+                subject: subject,
+                html: html,
             });
 
-            console.log('Email sent successfully via Gmail API:', res.data.id);
-            return res.data;
+            console.log('Email sent successfully via Nodemailer:', info.messageId);
+            return info;
         } catch (err) {
-            console.error('Gmail API Exception:', err);
+            console.error('Nodemailer Exception:', err);
             throw err;
         }
     }

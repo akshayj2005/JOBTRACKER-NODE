@@ -227,15 +227,15 @@ exports.testEmail = async (req, res) => {
             diagnostics: {}
         };
 
-        // Check Gmail API (Exclusively used for Cloud)
-        if (notificationService.gmail) {
-            results.diagnostics.gmail = {
+        // Check Nodemailer Transporter
+        if (notificationService.transporter) {
+            results.diagnostics.smtp = {
                 status: 'initialized',
-                provider: 'Gmail API (OAuth2)',
+                provider: 'Nodemailer (SMTP)',
                 fromEmail: process.env.EMAIL_USER || 'me'
             };
         } else {
-            results.diagnostics.gmail = { status: 'not_configured', message: 'Gmail API credentials missing' };
+            results.diagnostics.smtp = { status: 'not_configured', message: 'SMTP credentials missing or transporter not initialized' };
             results.status = 'partial_success';
         }
 
