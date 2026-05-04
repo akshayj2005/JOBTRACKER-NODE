@@ -223,20 +223,39 @@ exports.forgotPassword = async (req, res) => {
 exports.testEmail = async (req, res) => {
     try {
         const results = {
-            status: 'success',
-            diagnostics: {}
+            status: 'checking',
+            diagnostics: {
+                env: {
+                    EMAIL_USER: process.env.EMAIL_USER ? 'Configured' : 'Missing',
+                    EMAIL_PASS: process.env.EMAIL_PASS ? 'Configured' : 'Missing',
+                    EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.gmail.com',
+                    EMAIL_PORT: process.env.EMAIL_PORT || 465
+                }
+            }
         };
 
         // Check Nodemailer Transporter
         if (notificationService.transporter) {
-            results.diagnostics.smtp = {
-                status: 'initialized',
-                provider: 'Nodemailer (SMTP)',
-                fromEmail: process.env.EMAIL_USER || 'me'
-            };
+            try {
+                await notificationService.transporter.verify();
+                results.diagnostics.smtp = {
+                    status: 'connected',
+                    message: 'SMTP connection verified successfully',
+                    provider: 'Nodemailer (SMTP)',
+                    fromEmail: process.env.EMAIL_USER
+                };
+                results.status = 'success';
+            } catch (verifyErr) {
+                results.diagnostics.smtp = {
+                    status: 'error',
+                    message: verifyErr.message,
+                    code: verifyErr.code
+                };
+                results.status = 'error';
+            }
         } else {
-            results.diagnostics.smtp = { status: 'not_configured', message: 'SMTP credentials missing or transporter not initialized' };
-            results.status = 'partial_success';
+            results.diagnostics.smtp = { status: 'not_configured', message: 'Transporter not initialized' };
+            results.status = 'error';
         }
 
         res.json(results);

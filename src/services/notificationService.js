@@ -30,8 +30,10 @@ class NotificationService {
      * Internal helper to send email using Nodemailer
      */
     async sendEmail(to, subject, html, fromName = 'JobTracker') {
+        console.log(`[NotificationService] Attempting to send email to: ${to}`);
+        
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            console.error('Cannot send email: EMAIL_USER or EMAIL_PASS not configured.');
+            console.error('[NotificationService] Cannot send email: EMAIL_USER or EMAIL_PASS not configured in .env');
             return null;
         }
 
@@ -45,10 +47,10 @@ class NotificationService {
                 html: html,
             });
 
-            console.log('Email sent successfully via Nodemailer:', info.messageId);
+            console.log('[NotificationService] Email sent successfully:', info.messageId);
             return info;
         } catch (err) {
-            console.error('Nodemailer Exception:', err);
+            console.error('[NotificationService] Error sending email:', err);
             throw err;
         }
     }
